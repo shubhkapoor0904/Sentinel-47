@@ -1,0 +1,126 @@
+PROJECT: Sentinel-47 — AI-Driven Energy Supply Chain Resilience Platform
+
+ROLE
+You are my lead full-stack + AI systems engineer for a 36-hour hackathon build.
+Prioritize a working, demoable end-to-end product over breadth. Flag any
+assumption you make explicitly in comments. Never silently fail — every agent
+call must have a visible fallback/error state in the UI.
+
+MISSION
+India imports ~88% of its crude oil; 40-45% transits the Strait of Hormuz.
+McKinsey found economies without automated rerouting/demand-management
+intelligence take 47 extra days to stabilize supply after a shock versus
+those with integrated response systems. Build the integrated response system
+that closes that 47-day gap — turning energy security from reactive crisis
+response into a managed, anticipatory process.
+
+CORE INNOVATION (this is what must stand out — do not skip this module)
+Most disruption-monitoring tools stop at dashboards. Sentinel-47's
+differentiator is closing the loop from signal -> simulation -> EXECUTABLE
+DECISION ARTIFACT. The system must autonomously produce a ministry/
+refinery-ready Executive Decision Memo (not just charts) the moment risk
+crosses a threshold — formatted like a real policy brief, with explicit
+numbers, ranked options, and a recommended action. This is the "wow" moment
+of the demo.
+
+BUILD 4 MODULES, IN THIS ORDER:
+
+1. GEOPOLITICAL RISK INTELLIGENCE AGENT
+   - Ingest real signals: pull live headlines via a free news API
+     (NewsAPI.org / GNews) filtered to Strait of Hormuz, Red Sea, Iran
+     sanctions, OPEC+, Brent crude keywords.
+   - Pull live Brent crude price via a free market data API (Alpha Vantage
+     or similar) as a quantitative cross-check against news sentiment.
+   - Use an LLM call to extract structured risk signals from headlines:
+     {corridor, event_type, severity_0to10, confidence, source, timestamp}.
+   - Aggregate into a single live "Disruption Probability Score" per
+     corridor (Hormuz / Red Sea / Suez), updated on a polling interval.
+   - UI: a world map (use a real geo library, not a static image) with
+     Hormuz/Red Sea/Suez highlighted, color-coded by live risk score, plus
+     a scrolling live signal feed underneath showing each extracted event
+     and why it moved the score.
+
+2. DISRUPTION SCENARIO MODELLER
+   - User-selectable preset scenarios: "Hormuz 50% closure," "OPEC+
+     emergency cut," "Red Sea full suspension," plus a custom slider for
+     % capacity loss.
+   - On trigger, an LLM agent computes a structured, NUMBERED cascading
+     impact: refinery run-rate drop %, projected domestic fuel price
+     delta (Rs/litre), days-of-cover remaining against India's ~9.5 day
+     SPR buffer, and estimated GDP drag — clearly label all figures as
+     "modeled estimates, not forecasts" with stated assumptions visible
+     on hover/click (judges explicitly reward "assumptions must be
+     explicit and testable" — make this a first-class UI element, not
+     a footnote).
+   - Output as a clean before/after comparison, not just one impact card.
+
+3. ADAPTIVE PROCUREMENT ORCHESTRATOR
+   - Given the active scenario, an agent ranks 4-6 alternative crude
+     sources/routes (e.g., US Gulf, West Africa, Russia via alternate
+     routes, domestic reserves) scored on: price premium, tanker transit
+     time, port congestion (can be mocked with realistic synthetic data,
+     clearly labeled as illustrative), refinery grade compatibility.
+   - Each ranked option must show its REASONING (chain-of-thought style,
+     2-3 lines) — this is what makes it "agentic" rather than a lookup
+     table, and is explicitly what the judging criteria call "executable"
+     recommendations.
+
+4. EXECUTIVE DECISION MEMO AGENT (the differentiator — do not cut this)
+   - On demand (or auto-triggered when risk score crosses a threshold),
+     generate a one-page formatted briefing document combining: current
+     risk level, the active scenario's modeled impact, the top 2 ranked
+     procurement alternatives with a clear recommendation, and a
+     suggested SPR drawdown if relevant.
+   - Render as an actual clean document (not raw chat text) — use a
+     structured template with a header, numbered findings, and a
+     recommendation block. This should look like something an actual
+     petroleum ministry official could screenshot and forward.
+   - Include a one-line "time saved" framing tied to the 47-day stat:
+     e.g. "Decision support delivered in <X seconds> vs an estimated
+     47-day stabilization lag without integrated intelligence."
+
+TECH STACK
+- Frontend: React + Tailwind, single-page app, dark "command center"
+  aesthetic (not generic SaaS blue) — this is a national security tool,
+  design it like one.
+- Mapping: deck.gl or Mapbox GL (free tier) for the corridor risk map.
+- Charts: Recharts for impact comparisons.
+- Backend/agents: orchestrate via direct LLM API calls (Claude or Gemini),
+  structured outputs as JSON, never freeform text where a UI element needs
+  to parse it.
+- Keep all API keys in env vars, never hardcoded.
+
+DATA HONESTY RULE (critical — judges will probe this)
+Clearly label every data point as either (a) LIVE real data with source
+named, or (b) MODELED/SYNTHETIC and explicitly marked as illustrative.
+Never blend the two without a visible distinction. This single discipline
+is a differentiator most hackathon teams skip and it directly protects
+your credibility under judge questioning.
+
+BUILD SEQUENCE
+1. Scaffold the full UI shell with all 4 module placeholders and the
+   command-center layout FIRST, with mock data wired in, so there is
+   always a demoable product even if later API integrations run out
+   of time.
+2. Wire Module 1 (real news + real price API) — this is the one
+   "live data" module that must actually work, it's your credibility
+   anchor.
+3. Build Module 2 (scenario modeller) with the LLM-driven impact
+   calculator.
+4. Build Module 3 (procurement orchestrator) with reasoning display.
+5. Build Module 4 (decision memo) — wire it to pull live state from
+   modules 1-3 so it's a genuine synthesis, not a static template.
+6. Final pass: error states, loading states, and a guided "demo mode"
+   button that walks through a pre-set Hormuz-closure scenario end-to-end
+   in under 90 seconds for the live demo.
+
+DELIVERABLES TO PRODUCE ALONGSIDE THE CODE
+- Architecture diagram (data flow: news/price APIs -> risk agent ->
+  scenario modeller -> procurement orchestrator -> decision memo)
+- 90-second guided demo script
+- One paragraph for the pitch deck explicitly mapping each module to a
+  judging criterion (Innovation / Business Impact / Technical Excellence
+  / Scalability / UX) so nothing built goes unscored
+
+START by scaffolding the UI shell and Module 1's news ingestion. Show me
+the file structure plan before writing extensive code.
