@@ -66,7 +66,7 @@ export default function ProcurementOrchestrator({ options, isLoading }: Procurem
       </div>
 
       {/* Main List */}
-      <div className="flex flex-col gap-3 flex-1 overflow-y-auto max-h-[360px] pr-1">
+      <div className="flex flex-col gap-3 flex-1 overflow-y-auto max-h-[360px] pr-1 mt-1">
         {options.map((opt, idx) => {
           const isSelected = selectedRoute === idx;
           const scoreColor = getScoreColor(opt.overallScore);

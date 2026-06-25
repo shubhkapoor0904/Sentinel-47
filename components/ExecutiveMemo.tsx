@@ -133,7 +133,7 @@ export default function ExecutiveMemo({ memo, isLoading, onGenerate }: Executive
             <h4 className="font-sans font-bold text-xs text-gray-500 uppercase tracking-wider mb-2">
               2. Geopolitical Corridor Assessment
             </h4>
-            <ul className="list-decimal pl-4 flex flex-col gap-1.5 text-xs text-gray-800">
+            <ul className="list-disc pl-5 flex flex-col gap-1.5 text-xs text-gray-800">
               {memo.riskAssessment.map((risk, idx) => (
                 <li key={idx} className="leading-relaxed text-justify">
                   {risk}
@@ -147,7 +147,7 @@ export default function ExecutiveMemo({ memo, isLoading, onGenerate }: Executive
             <h4 className="font-sans font-bold text-xs text-gray-500 uppercase tracking-wider mb-2">
               3. Numbered Cascading Impact Findings
             </h4>
-            <ul className="list-decimal pl-4 flex flex-col gap-1.5 text-xs text-gray-800 font-medium">
+            <ul className="list-disc pl-5 flex flex-col gap-1.5 text-xs text-gray-800 font-medium">
               {memo.impactFindings.map((finding, idx) => (
                 <li key={idx} className="leading-relaxed text-justify text-gray-900">
                   {finding}
@@ -161,7 +161,7 @@ export default function ExecutiveMemo({ memo, isLoading, onGenerate }: Executive
             <h4 className="font-sans font-bold text-xs text-gray-500 uppercase tracking-wider mb-2">
               4. Actionable Sourcing & Routing Directives
             </h4>
-            <ul className="list-decimal pl-4 flex flex-col gap-1.5 text-xs text-gray-800">
+            <ul className="list-disc pl-5 flex flex-col gap-1.5 text-xs text-gray-800">
               {memo.procurementDirectives.map((directive, idx) => (
                 <li key={idx} className="leading-relaxed text-justify">
                   {directive}

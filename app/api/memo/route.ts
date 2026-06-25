@@ -100,7 +100,7 @@ export async function POST(request: Request) {
         Format the brief into a highly polished JSON structure:
         - executiveSummary: A formal 3-4 sentence paragraph highlighting the threat and immediate strategic posture.
         - riskAssessment: A list of 3-4 bullet points detailing specific corridor risks based on the telemetry. Include Brent price impact.
-        - impactFindings: A list of 3-4 bullet points summarizing the numbered cascading impacts on the Indian economy (refineries, prices, reserves, GDP).
+        - impactFindings: A list of 3-4 descriptive bullet points summarizing the cascading impacts on the Indian economy (refinery run-rate drop, retail price spike, SPR day-of-cover remaining, GDP drag). Do not prefix items with numbers.
         - procurementDirectives: A list of 2-3 specific actionable directives advising the government on how to allocate contracts to the top procurement alternatives, citing their transit days and premiums.
         - sprDirectives: A single clear directive regarding SPR release rate and duration to offset the supply gap.
         - signature: "Director-General, Sentinel-47 Energy Intelligence Command"
