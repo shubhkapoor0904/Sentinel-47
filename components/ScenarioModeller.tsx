@@ -55,7 +55,7 @@ export default function ScenarioModeller({
   ];
 
   return (
-    <div className="cyber-panel p-6 rounded-lg border border-cyber-border h-full flex flex-col gap-6 select-none">
+    <div className="cyber-panel p-6 rounded-lg border border-cyber-border max-w-6xl mx-auto w-full flex flex-col gap-6 select-none">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-cyber-border pb-4">
         <div className="flex items-center gap-3">
@@ -74,7 +74,7 @@ export default function ScenarioModeller({
       </div>
 
       {/* Main Grid split */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Left Side: Controls (col-span-1) */}
         <div className="lg:col-span-1 flex flex-col gap-4">
@@ -146,7 +146,7 @@ export default function ScenarioModeller({
           <span className="text-[10px] uppercase font-mono text-gray-500 block font-bold">
             Cascading Economic Shocks
           </span>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Metric 1: Refinery Drop */}
             <div className="bg-[#0b0f19]/50 border border-cyber-border p-3.5 rounded flex flex-col justify-between h-[125px]">
               <span className="text-[9px] font-mono text-gray-500 uppercase font-bold">Refinery Run Rate</span>

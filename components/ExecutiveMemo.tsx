@@ -29,24 +29,40 @@ export default function ExecutiveMemo({ memo, isLoading, onGenerate }: Executive
   const memoRef = useRef<HTMLDivElement>(null);
   const [localCompiling, setLocalCompiling] = useState(false);
   const [compileProgress, setCompileProgress] = useState(0);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Clean up timer on unmount
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (isLoading) {
       setLocalCompiling(true);
       setCompileProgress(0);
-      let progress = 0;
-      const interval = setInterval(() => {
-        progress += 4;
-        if (progress >= 100) {
-          progress = 100;
-          clearInterval(interval);
-          setTimeout(() => {
+
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+
+      intervalRef.current = setInterval(() => {
+        setCompileProgress((prev) => {
+          const next = prev + 4;
+          if (next >= 100) {
+            if (intervalRef.current) {
+              clearInterval(intervalRef.current);
+              intervalRef.current = null;
+            }
             setLocalCompiling(false);
-          }, 350);
-        }
-        setCompileProgress(progress);
+            return 100;
+          }
+          return next;
+        });
       }, 50); // 50ms * 25 updates = 1.25s
-      return () => clearInterval(interval);
     }
   }, [isLoading]);
 
