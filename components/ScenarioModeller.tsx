@@ -55,7 +55,7 @@ export default function ScenarioModeller({
   ];
 
   return (
-    <div className="cyber-panel p-6 rounded-lg border border-cyber-border max-w-6xl mx-auto w-full flex flex-col gap-6 select-none">
+    <div className="cyber-panel p-6 rounded-lg border border-cyber-border h-full flex flex-col gap-6 select-none">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-cyber-border pb-4">
         <div className="flex items-center gap-3">
@@ -74,7 +74,7 @@ export default function ScenarioModeller({
       </div>
 
       {/* Main Grid split */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 shrink-0">
         
         {/* Left Side: Controls (col-span-1) */}
         <div className="lg:col-span-1 flex flex-col gap-4">

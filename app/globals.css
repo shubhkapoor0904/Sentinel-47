@@ -108,3 +108,65 @@ body {
 .cursor-blink {
   animation: blink 1s step-end infinite;
 }
+
+/* Print Stylesheet to Isolate and Render Memo Document */
+@media print {
+  /* Hide all dashboard panels, headers, maps, feeds, buttons, and navigation elements */
+  header,
+  .print\:hidden,
+  button,
+  svg,
+  .lucide,
+  #threat-signal-feed,
+  aside,
+  nav {
+    display: none !important;
+  }
+
+  /* Hide all other view containers that are not the memo document container */
+  .absolute:not([id="printable-memo-document"]):not([className*="font-sans"]) {
+    display: none !important;
+  }
+
+  /* Force clean page background and visibility flow */
+  html, body {
+    background: white !important;
+    color: black !important;
+    overflow: visible !important;
+    height: auto !important;
+    min-height: 0 !important;
+  }
+
+  /* Reset layout of memo page container to cover full print space */
+  #printable-memo-document {
+    position: relative !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    background: white !important;
+    color: black !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+    visibility: visible !important;
+  }
+
+  /* Force all child texts inside the memo to be visible and black */
+  #printable-memo-document,
+  #printable-memo-document * {
+    color: black !important;
+    background: transparent !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    animation: none !important;
+    transition: none !important;
+  }
+
+  /* Protect color of warning auto-trigger stamp */
+  #printable-memo-document .text-red-700 {
+    color: #b91c1c !important;
+  }
+}

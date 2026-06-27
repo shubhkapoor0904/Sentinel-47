@@ -144,7 +144,7 @@ export default function ExecutiveMemo({ memo, isLoading, onGenerate }: Executive
           </div>
         </div>
       ) : (
-        <div className="flex-1 overflow-y-auto max-h-[580px] border border-cyber-border/80 bg-white text-gray-900 p-8 sm:p-10 rounded shadow-2xl font-serif text-left print:p-0 print:border-none print:shadow-none print:max-h-none print:bg-white print:text-black">
+        <div id="printable-memo-document" className="flex-1 overflow-y-auto max-h-[580px] border border-cyber-border/80 bg-white text-gray-900 p-8 sm:p-10 rounded shadow-2xl font-serif text-left print:p-0 print:border-none print:shadow-none print:max-h-none print:bg-white print:text-black">
           <div ref={memoRef} className="flex flex-col gap-6 max-w-2xl mx-auto print:mx-0 print:max-w-none animate-fadeIn">
             
             {/* Dynamic Auto-Trigger conditions stamp */}
@@ -183,7 +183,7 @@ export default function ExecutiveMemo({ memo, isLoading, onGenerate }: Executive
               <div className="col-span-5 text-gray-900 uppercase">{memo.from}</div>
 
               <div className="col-span-1 text-gray-500 uppercase tracking-wider text-[10px]">Subject:</div>
-              <div className="col-span-5 text-gray-950 font-bold uppercase underline">
+              <div className="col-span-5 text-gray-955 font-bold uppercase underline">
                 {memo.subject}
               </div>
             </div>
@@ -264,7 +264,7 @@ export default function ExecutiveMemo({ memo, isLoading, onGenerate }: Executive
         </div>
       )}
 
-      {/* CSS Print Styles to Isolate the Memo Document */}
+      {/* CSS Animation Styles */}
       <style jsx global>{`
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(8px); }
@@ -272,38 +272,6 @@ export default function ExecutiveMemo({ memo, isLoading, onGenerate }: Executive
         }
         .animate-fadeIn {
           animation: fadeIn 0.4s ease-out forwards;
-        }
-        @media print {
-          body * {
-            visibility: hidden;
-          }
-          /* Make sure ONLY the memo text sheet is shown and printed */
-          .print\\:hidden {
-            display: none !important;
-          }
-          /* Target the memo content container and make it visible */
-          div[ref] {
-            visibility: visible !important;
-          }
-          /* Style container for fullscreen page print */
-          div.font-serif {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
-            height: 100% !important;
-            visibility: visible !important;
-            background: white !important;
-            color: black !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            border: none !important;
-            box-shadow: none !important;
-          }
-          div.font-serif * {
-            visibility: visible !important;
-            color: black !important;
-          }
         }
       `}</style>
     </div>
