@@ -16,6 +16,7 @@ interface MemoStructure {
   sprDirectives: string;
   signature: string;
   timeSavedStatement: string;
+  autoTriggerStatement?: string;
 }
 
 interface ExecutiveMemoProps {
@@ -85,6 +86,14 @@ export default function ExecutiveMemo({ memo, isLoading, onGenerate }: Executive
       {/* Official Memo Sheet Wrapper */}
       <div className="flex-1 overflow-y-auto max-h-[500px] border border-cyber-border/80 bg-white text-gray-900 p-6 sm:p-8 rounded shadow-2xl font-serif text-left print:p-0 print:border-none print:shadow-none print:max-h-none print:bg-white print:text-black">
         <div ref={memoRef} className="flex flex-col gap-6 max-w-2xl mx-auto print:mx-0 print:max-w-none">
+          {/* Dynamic Auto-Trigger conditions stamp */}
+          {memo.autoTriggerStatement && (
+            <div className="border border-red-500 bg-red-50 text-red-700 px-3 py-1.5 rounded font-mono text-[9px] font-bold flex items-center gap-2 select-none print:bg-white print:border-red-600 print:text-red-700 shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse" />
+              <span>{memo.autoTriggerStatement}</span>
+            </div>
+          )}
+
           {/* Official Letterhead */}
           <div className="text-center border-b-4 border-double border-gray-800 pb-4">
             <h3 className="font-sans font-bold tracking-widest text-[11px] uppercase text-gray-500 print:text-gray-700">

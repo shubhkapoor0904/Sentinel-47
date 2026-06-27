@@ -14,6 +14,7 @@ interface MemoStructure {
   sprDirectives: string;
   signature: string;
   timeSavedStatement: string;
+  autoTriggerStatement?: string;
 }
 
 export async function POST(request: Request) {
@@ -105,6 +106,7 @@ export async function POST(request: Request) {
         - sprDirectives: A single clear directive regarding SPR release rate and duration to offset the supply gap.
         - signature: "Director-General, Sentinel-47 Energy Intelligence Command"
         - timeSavedStatement: A single sentence linking the computation time to the McKinsey 47-day statistic, e.g., "Decision support brief generated in X.XX seconds, reducing the un-integrated 47-day stabilization latency to an immediate tactical response."
+        - autoTriggerStatement: A string indicating which corridor telemetry crossed which threshold, e.g., "Auto-generated: Red Sea corridor crossed WARNING threshold (50%) at 4:34 PM" based on the highest-threat corridor in the provided telemetry.
 
         Ensure the tone is authoritative, official, precise, and contains specific figures. Do not output placeholders.
         Return ONLY a JSON object matching this structure:
@@ -120,7 +122,8 @@ export async function POST(request: Request) {
           "procurementDirectives": [ "...", "..." ],
           "sprDirectives": "...",
           "signature": "...",
-          "timeSavedStatement": "..."
+          "timeSavedStatement": "...",
+          "autoTriggerStatement": "..."
         }
       `;
 
@@ -136,6 +139,33 @@ export async function POST(request: Request) {
         parsed.sprDirectives &&
         parsed.timeSavedStatement
       ) {
+        // Construct the autoTriggerStatement if it wasn't returned by LLM
+        if (!parsed.autoTriggerStatement && capacityLoss > 0) {
+          const currentKolkataTime = new Date().toLocaleTimeString("en-IN", {
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+            timeZone: "Asia/Kolkata",
+          });
+          let corridorName = "Custom";
+          let thresholdName = "WARNING";
+          let thresholdPct = capacityLoss;
+
+          if (scenarioName.includes("Hormuz")) {
+            corridorName = "Strait of Hormuz";
+            thresholdName = "CRITICAL";
+            thresholdPct = 78;
+          } else if (scenarioName.includes("Red Sea")) {
+            corridorName = "Red Sea";
+            thresholdName = "WARNING";
+            thresholdPct = 50;
+          } else if (scenarioName.includes("OPEC")) {
+            corridorName = "Global supply";
+            thresholdName = "WARNING";
+            thresholdPct = 65;
+          }
+          parsed.autoTriggerStatement = `Auto-generated: ${corridorName} corridor crossed ${thresholdName} threshold (${thresholdPct}%) at ${currentKolkataTime}`;
+        }
         memo = parsed;
         isLlmUsed = true;
       }
@@ -154,10 +184,39 @@ export async function POST(request: Request) {
     let impactFindings: string[] = [];
     let procurementDirectives: string[] = [];
     let sprDirectives = "";
+    let autoTriggerStatement = "";
+
+    // Parse the current Indian Standard Time in 12-hour format: e.g. "4:34 PM"
+    const currentKolkataTime = new Date().toLocaleTimeString("en-IN", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+      timeZone: "Asia/Kolkata",
+    });
 
     if (capacityLoss > 0) {
       executiveSummary = `A severe supply chain threat is active due to the ${scenarioName} scenario, resulting in an estimated ${capacityLoss}% loss of transport capacity through critical energy corridors. Sentinel-47 has mobilized telemetry and procurement routes. Immediate action is required to maintain domestic refinery run-rates, mitigate consumer fuel price shocks, and secure alternative shipping channels.`;
       
+      let corridorName = "Custom";
+      let thresholdName = "WARNING";
+      let thresholdPct = capacityLoss;
+
+      if (scenarioName.includes("Hormuz")) {
+        corridorName = "Strait of Hormuz";
+        thresholdName = "CRITICAL";
+        thresholdPct = 78;
+      } else if (scenarioName.includes("Red Sea")) {
+        corridorName = "Red Sea";
+        thresholdName = "WARNING";
+        thresholdPct = 50; // The threshold target is 50%
+      } else if (scenarioName.includes("OPEC")) {
+        corridorName = "Global supply";
+        thresholdName = "WARNING";
+        thresholdPct = 65;
+      }
+
+      autoTriggerStatement = `Auto-generated: ${corridorName} corridor crossed ${thresholdName} threshold (${thresholdPct}%) at ${currentKolkataTime}`;
+
       riskAssessment = [
         `Brent Crude prices are hovering at $${brentPrice.toFixed(2)}/bbl, incorporating a high-risk premium due to the active supply bottlenecks.`,
         corridors.Hormuz?.score > 30 ? `The Strait of Hormuz threat level is currently at ${corridors.Hormuz.score}% (${corridors.Hormuz.status}), restricting flow of imports which typically account for 40%+ of domestic crude.` : "The Strait of Hormuz remains operational but under high-surveillance monitoring.",
@@ -217,7 +276,8 @@ export async function POST(request: Request) {
       procurementDirectives,
       sprDirectives,
       signature: "Director-General, Sentinel-47 Intelligence Command Center",
-      timeSavedStatement: `Decision support brief generated in ${timeSec} seconds, reducing the un-integrated 47-day stabilization latency to an immediate tactical response.`
+      timeSavedStatement: `Decision support brief generated in ${timeSec} seconds, reducing the un-integrated 47-day stabilization latency to an immediate tactical response.`,
+      autoTriggerStatement: autoTriggerStatement || undefined
     };
   }
 

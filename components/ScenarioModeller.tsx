@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { AlertOctagon, BarChart2, HelpCircle, Info, Sliders } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { AlertOctagon, HelpCircle, Info, Sliders } from "lucide-react";
 
 interface ScenarioImpact {
   refinery_run_rate_drop: number;
@@ -151,97 +150,119 @@ export default function ScenarioModeller({
       </div>
 
       {/* Before / After Metrics Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Metric 1: Refinery Drop */}
-        <div className="bg-[#0b0f19]/50 border border-cyber-border p-3 rounded flex flex-col justify-between">
+        <div className="bg-[#0b0f19]/50 border border-cyber-border p-3.5 rounded flex flex-col justify-between h-[135px]">
           <span className="text-[9px] font-mono text-gray-500 uppercase">Refinery Run Rate</span>
-          <div className="my-2">
-            <div className="text-[10px] font-mono text-gray-400">Baseline: 100%</div>
-            <div className="text-lg font-bold font-mono text-cyber-red flex items-baseline gap-1 mt-0.5">
+          <div>
+            <div className="text-lg font-bold font-mono text-white tracking-tight">
               {(100 - impact.refinery_run_rate_drop).toFixed(0)}%
-              <span className="text-[10px] font-normal text-gray-400">
-                (-{impact.refinery_run_rate_drop}%)
-              </span>
+            </div>
+            <div className="text-[9px] font-mono text-cyber-red mt-0.5">
+              Drop: -{impact.refinery_run_rate_drop}%
             </div>
           </div>
-          <div className="h-[50px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={runRateData} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
-                <XAxis dataKey="name" hide />
-                <YAxis domain={[0, 100]} hide />
-                <Bar dataKey="value" radius={[2, 2, 0, 0]}>
-                  {runRateData.map((entry, idx) => (
-                    <Cell key={`cell-${idx}`} fill={entry.fill} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+          
+          {/* Animated Horizontal Tube */}
+          <div className="relative h-4 w-full bg-slate-950 border border-slate-800 rounded overflow-hidden mt-2 select-none">
+            {/* Ghost Outline (representing 100% baseline) */}
+            <div className="absolute inset-0 border border-dashed border-cyber-green/40 rounded opacity-60 z-10 pointer-events-none" />
+            {/* Current Fill */}
+            <div
+              className="h-full bg-gradient-to-r from-cyber-red/80 to-cyber-red transition-all duration-500 ease-out"
+              style={{ width: `${100 - impact.refinery_run_rate_drop}%` }}
+            />
+            {/* Text overlays inside */}
+            <div className="absolute inset-0 flex justify-between items-center px-1.5 font-mono text-[8px] z-20 pointer-events-none">
+              <span className="text-white font-bold">After</span>
+              <span className="text-cyber-green font-bold">Before: 100%</span>
+            </div>
           </div>
         </div>
 
         {/* Metric 2: Price Delta */}
-        <div className="bg-[#0b0f19]/50 border border-cyber-border p-3 rounded flex flex-col justify-between">
+        <div className="bg-[#0b0f19]/50 border border-cyber-border p-3.5 rounded flex flex-col justify-between h-[135px]">
           <span className="text-[9px] font-mono text-gray-500 uppercase">Fuel Price Shock</span>
-          <div className="my-2">
-            <div className="text-[10px] font-mono text-gray-400">Baseline: +Rs. 0.00</div>
-            <div className="text-lg font-bold font-mono text-cyber-orange mt-0.5">
-              +Rs. {impact.fuel_price_delta.toFixed(2)}
-              <span className="text-[10px] font-normal text-gray-400 ml-1">/litre</span>
+          <div>
+            <div className="text-lg font-bold font-mono text-cyber-orange tracking-tight">
+              +₹{impact.fuel_price_delta.toFixed(2)}
+              <span className="text-[10px] font-normal text-gray-400">/litre</span>
+            </div>
+            <div className="text-[9px] font-mono text-gray-500 mt-0.5">
+              Baseline: ₹0.00 (no shock)
             </div>
           </div>
-          <div className="h-[50px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={priceData} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
-                <XAxis dataKey="name" hide />
-                <YAxis hide />
-                <Bar dataKey="value" radius={[2, 2, 0, 0]}>
-                  {priceData.map((entry, idx) => (
-                    <Cell key={`cell-${idx}`} fill={entry.fill} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+          
+          {/* Animated Horizontal Tube */}
+          <div className="relative h-4 w-full bg-slate-950 border border-slate-800 rounded overflow-hidden mt-2 select-none">
+            {/* Current Fill */}
+            <div
+              className="h-full bg-gradient-to-r from-cyber-orange/80 to-cyber-orange transition-all duration-500 ease-out"
+              style={{ width: `${Math.min(100, (impact.fuel_price_delta / 25) * 100)}%` }}
+            />
+            {/* Text overlays inside */}
+            <div className="absolute inset-0 flex justify-between items-center px-1.5 font-mono text-[8px] z-20 pointer-events-none">
+              <span className="text-white font-bold">{impact.fuel_price_delta > 0 ? "Shock" : "Stable"}</span>
+              <span className="text-gray-400 font-bold">Max Scale: ₹25</span>
+            </div>
           </div>
         </div>
 
         {/* Metric 3: SPR Days-of-Cover */}
-        <div className="bg-[#0b0f19]/50 border border-cyber-border p-3 rounded flex flex-col justify-between">
+        <div className="bg-[#0b0f19]/50 border border-cyber-border p-3.5 rounded flex flex-col justify-between h-[135px]">
           <span className="text-[9px] font-mono text-gray-500 uppercase">SPR Buffer Cover</span>
-          <div className="my-2">
-            <div className="text-[10px] font-mono text-gray-400">Baseline: 9.5 days</div>
-            <div className="text-lg font-bold font-mono text-cyber-amber mt-0.5">
+          <div>
+            <div className="text-lg font-bold font-mono text-cyber-amber tracking-tight">
               {impact.days_of_cover.toFixed(1)}
-              <span className="text-[10px] font-normal text-gray-400 ml-1">days left</span>
+              <span className="text-[10px] font-normal text-gray-400"> days left</span>
+            </div>
+            <div className="text-[9px] font-mono text-cyber-red mt-0.5">
+              Drawdown: -{(9.5 - impact.days_of_cover).toFixed(1)} days
             </div>
           </div>
-          <div className="h-[50px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={sprData} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
-                <XAxis dataKey="name" hide />
-                <YAxis domain={[0, 9.5]} hide />
-                <Bar dataKey="value" radius={[2, 2, 0, 0]}>
-                  {sprData.map((entry, idx) => (
-                    <Cell key={`cell-${idx}`} fill={entry.fill} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+          
+          {/* Animated Horizontal Tube */}
+          <div className="relative h-4 w-full bg-slate-950 border border-slate-800 rounded overflow-hidden mt-2 select-none">
+            {/* Ghost Outline (representing 9.5 days baseline) */}
+            <div className="absolute inset-0 border border-dashed border-cyber-green/40 rounded opacity-60 z-10 pointer-events-none" />
+            {/* Current Fill */}
+            <div
+              className="h-full bg-gradient-to-r from-cyber-amber/80 to-cyber-amber transition-all duration-500 ease-out"
+              style={{ width: `${(impact.days_of_cover / 9.5) * 100}%` }}
+            />
+            {/* Text overlays inside */}
+            <div className="absolute inset-0 flex justify-between items-center px-1.5 font-mono text-[8px] z-20 pointer-events-none">
+              <span className="text-white font-bold">After</span>
+              <span className="text-cyber-green font-bold">Before: 9.5d</span>
+            </div>
           </div>
         </div>
 
         {/* Metric 4: GDP Growth Drag */}
-        <div className="bg-[#0b0f19]/50 border border-cyber-border p-3 rounded flex flex-col justify-between">
+        <div className="bg-[#0b0f19]/50 border border-cyber-border p-3.5 rounded flex flex-col justify-between h-[135px]">
           <span className="text-[9px] font-mono text-gray-500 uppercase">Quarterly GDP Drag</span>
-          <div className="my-2">
-            <div className="text-[10px] font-mono text-gray-400">Baseline: 0.0%</div>
-            <div className="text-lg font-bold font-mono text-cyber-red mt-0.5">
+          <div>
+            <div className="text-lg font-bold font-mono text-cyber-red tracking-tight">
               -{impact.gdp_drag.toFixed(2)}%
-              <span className="text-[10px] font-normal text-gray-400 ml-1">growth rate</span>
+            </div>
+            <div className="text-[9px] font-mono text-gray-500 mt-0.5 flex items-center gap-1">
+              <Info className="w-3 h-3 text-cyber-blue" strokeWidth={2.5} />
+              Spills to general inflation
             </div>
           </div>
-          <div className="flex items-center gap-1 mt-2 text-[9px] font-mono text-gray-500 bg-cyber-bg p-1 rounded border border-cyber-border/40">
-            <Info className="w-3.5 h-3.5 text-cyber-blue" />
-            <span>Spills to general inflation</span>
+          
+          {/* Animated Horizontal Tube */}
+          <div className="relative h-4 w-full bg-slate-950 border border-slate-800 rounded overflow-hidden mt-2 select-none">
+            {/* Current Fill */}
+            <div
+              className="h-full bg-gradient-to-r from-cyber-red/80 to-cyber-red transition-all duration-500 ease-out"
+              style={{ width: `${Math.min(100, (impact.gdp_drag / 1.5) * 100)}%` }}
+            />
+            {/* Text overlays inside */}
+            <div className="absolute inset-0 flex justify-between items-center px-1.5 font-mono text-[8px] z-20 pointer-events-none">
+              <span className="text-white font-bold">{impact.gdp_drag > 0 ? "Drag" : "Normal"}</span>
+              <span className="text-gray-400 font-bold">Max Scale: 1.5%</span>
+            </div>
           </div>
         </div>
       </div>
