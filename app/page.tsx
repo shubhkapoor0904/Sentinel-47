@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { AlertCircle, Brain, Play, Shield, ShieldAlert, Cpu } from "lucide-react";
+import { Shield, Sliders, Brain, FileText, Play, Cpu } from "lucide-react";
 import RiskIntelligence from "@/components/RiskIntelligence";
 import ScenarioModeller from "@/components/ScenarioModeller";
 import ProcurementOrchestrator from "@/components/ProcurementOrchestrator";
@@ -59,6 +59,7 @@ interface MemoStructure {
   sprDirectives: string;
   signature: string;
   timeSavedStatement: string;
+  autoTriggerStatement?: string;
 }
 
 export default function Dashboard() {
@@ -68,6 +69,7 @@ export default function Dashboard() {
   const [brentPrice, setBrentPrice] = useState<number>(74.50);
   const [brentSource, setBrentSource] = useState<string>("Estimated");
   
+  const [activeTab, setActiveTab] = useState<number>(0);
   const [activeScenarioId, setActiveScenarioId] = useState<string>("baseline");
   const [customCapacityLoss, setCustomCapacityLoss] = useState<number>(0);
   const [impact, setImpact] = useState<ScenarioImpact>({
@@ -103,16 +105,12 @@ export default function Dashboard() {
   const [isLoadingProcurement, setIsLoadingProcurement] = useState<boolean>(false);
   const [isLoadingMemo, setIsLoadingMemo] = useState<boolean>(false);
 
-  // Demo Tour State
-  const [demoState, setDemoState] = useState<{
-    isActive: boolean;
-    step: number;
-    text: string;
-  }>({
-    isActive: false,
-    step: 0,
-    text: "",
-  });
+  // Guided Demo States
+  const [demoActive, setDemoActive] = useState<boolean>(false);
+  const [demoPaused, setDemoPaused] = useState<boolean>(false);
+  const [demoTime, setDemoTime] = useState<number>(0);
+  const [demoText, setDemoText] = useState<string>("");
+  const [procurementVisibleCount, setProcurementVisibleCount] = useState<number | undefined>(undefined);
 
   // Core pipelines
   // Fetch Geopolitical Risk intelligence
@@ -303,119 +301,310 @@ export default function Dashboard() {
     });
   }, []);
 
-  // Guided Demo Mode Walkthrough Trigger
-  const startGuidedDemo = () => {
-    if (demoState.isActive) return;
-
-    setDemoState({
-      isActive: true,
-      step: 1,
-      text: "[GEOPOLITICAL AGENT] Querying live News headlines & Brent pricing streams...",
-    });
-
-    // Step 1: Trigger risk polling (Simulate live polling feedback)
-    setTimeout(() => {
-      setDemoState({
-        isActive: true,
-        step: 2,
-        text: "[GEOPOLITICAL AGENT] News parsed. Strait of Hormuz threat score adjusted to 78% (CRITICAL).",
-      });
-
-      // Step 2: Trigger Hormuz preset
-      setActiveScenarioId("hormuz_50");
-      setCustomCapacityLoss(50);
-
-      setTimeout(() => {
-        setDemoState({
-          isActive: true,
-          step: 3,
-          text: "[SCENARIO AGENT] Running cascading oil disruptions. Estimated refinery processing drops by 21%.",
+  // Central timer-based Demo Controller loop
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    if (demoActive && !demoPaused) {
+      interval = setInterval(() => {
+        setDemoTime((prev) => {
+          const next = prev + 1;
+          if (next >= 90) {
+            stopDemo();
+            return 90;
+          }
+          return next;
         });
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [demoActive, demoPaused]);
 
-        // Trigger simulation pipeline
-        triggerFullPipeline("hormuz_50", 50);
+  // Demo sequence triggers based on demoTime seconds (0s - 90s)
+  useEffect(() => {
+    if (!demoActive) return;
 
-        setTimeout(() => {
-          setDemoState({
-            isActive: true,
-            step: 4,
-            text: "[PROCUREMENT AGENT] Re-routing supply lines. Pinpointing US WTI Midland & local Padur SPR releases.",
-          });
+    if (demoTime === 0) {
+      // Step 1: Geopolitical Risk Assessment (0 - 20s)
+      setActiveTab(0);
+      setDemoText("[GEOPOLITICAL AGENT] Loading corridor map & real-time telemetry streams...");
+      
+      // Reset states
+      setCorridors(prev => {
+        const reset = { ...prev };
+        if (reset["Red Sea"]) reset["Red Sea"] = { ...reset["Red Sea"], score: 15, status: "STABLE" };
+        return reset;
+      });
+      setSignals(prev => prev.filter(s => s.id !== "demo-red-sea-warning"));
+    } 
+    else if (demoTime === 5) {
+      // Trigger Warning threshold cross in Red Sea corridor (WARNING 50%)
+      setDemoText("[GEOPOLITICAL AGENT] Alert! News threat telemetry crossed WARNING threshold (50%) in Red Sea.");
+      
+      const demoSignal: GeopoliticalSignal = {
+        id: "demo-red-sea-warning",
+        corridor: "Red Sea",
+        event_type: "Corridor Security Escalation",
+        severity_0to10: 7.2,
+        confidence: 0.94,
+        source: "Sentinel Agent Intelligence",
+        timestamp: new Date().toISOString(),
+        reasoning: "Corridor threat probability crossed Warning threshold (50%) due to sudden ship rerouting directives.",
+        headline: "ALERT: Red Sea cargo lines diverted following escalation in shipping corridor"
+      };
 
-          setTimeout(() => {
-            setDemoState({
-              isActive: true,
-              step: 5,
-              text: "[DECISION AGENT] Synthesizing emergency ministerial memorandum. Generating official brief...",
-            });
+      setCorridors(prev => ({
+        ...prev,
+        "Red Sea": {
+          name: "Red Sea",
+          score: 50,
+          status: "WARNING",
+          description: "Auto-escalation warning triggered by transit reroutes."
+        }
+      }));
+      setSignals(prev => [demoSignal, ...prev]);
 
-            setTimeout(() => {
-              setDemoState({
-                isActive: false,
-                step: 0,
-                text: "",
-              });
-            }, 5000); // Wait on Memo reveal
-          }, 4000);
-        }, 4000);
-      }, 4000);
-    }, 4000);
+      // Scroll the signal feed to the top headline focus
+      setTimeout(() => {
+        const feed = document.getElementById("threat-signal-feed");
+        if (feed) {
+          feed.scrollTo({ top: 0, behavior: "smooth" });
+        }
+      }, 100);
+    } 
+    else if (demoTime === 20) {
+      // Step 2: Cascading Scenario Simulation (20 - 45s)
+      setActiveTab(1);
+      setDemoText("[SCENARIO AGENT] Transitioning to Scenario Modeller. Triggering Red Sea Suspension preset...");
+      
+      setActiveScenarioId("red_sea_full");
+      setCustomCapacityLoss(80);
+      triggerFullPipeline("red_sea_full", 80);
+    }
+    else if (demoTime === 25) {
+      setDemoText("[SCENARIO AGENT] Calculating cascading fuel prices, Strategic Reserve drawdown cover, and GDP growth drag...");
+    }
+    else if (demoTime === 45) {
+      // Step 3: Adaptive Sourcing evaluation (45 - 65s)
+      setActiveTab(2);
+      setDemoText("[PROCUREMENT AGENT] Transitioning to Sourcing. Ranking alternate maritime sourcing routes...");
+      
+      // Animate cards staggered fade-in
+      setProcurementVisibleCount(0);
+      let count = 0;
+      const staggerInterval = setInterval(() => {
+        count++;
+        setProcurementVisibleCount(count);
+        if (count >= 5) {
+          clearInterval(staggerInterval);
+        }
+      }, 150);
+    }
+    else if (demoTime === 50) {
+      setDemoText("[PROCUREMENT AGENT] Alternative routes ranked by refinery compatibility, transit speed, and port congestion levels.");
+    }
+    else if (demoTime === 65) {
+      // Step 4: Executive memo generation (65 - 90s)
+      setActiveTab(3);
+      setDemoText("[DECISION AGENT] Transitioning to Executive Brief. Autonomously compiling policy brief brief...");
+      
+      // Simulate compiler load in Brief module
+      setIsLoadingMemo(true);
+      setTimeout(() => {
+        setIsLoadingMemo(false);
+      }, 1250);
+    }
+    else if (demoTime === 72) {
+      setDemoText("[DECISION AGENT] Executive brief compiled. Policy response formulated and ready for ministerial signature.");
+    }
+  }, [demoTime, demoActive]);
+
+  // Demo Control methods
+  const startDemo = () => {
+    setDemoActive(true);
+    setDemoPaused(false);
+    setDemoTime(0);
   };
 
+  const stopDemo = () => {
+    setDemoActive(false);
+    setDemoPaused(false);
+    setDemoTime(0);
+    setProcurementVisibleCount(undefined);
+  };
+
+  const togglePause = () => {
+    setDemoPaused(prev => !prev);
+  };
+
+  const skipDemo = () => {
+    setDemoTime(65);
+  };
+
+  const navItems = [
+    { icon: Shield, label: "1. Geopolitical Risk" },
+    { icon: Sliders, label: "2. Disruption Scenario" },
+    { icon: Brain, label: "3. Sourcing Logistics" },
+    { icon: FileText, label: "4. Executive Brief" },
+  ];
+
   return (
-    <div className="flex flex-col min-h-screen text-gray-100 font-sans pb-10">
-      {/* Top Banner (National Security HUD Style) */}
-      <header className="bg-[#0b0f19] border-b border-cyber-border/80 px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4 print:hidden">
-        <div className="flex items-center gap-3 text-left">
-          <div className="w-10 h-10 rounded border border-cyber-red/30 bg-cyber-red/10 flex items-center justify-center text-cyber-red shadow-[0_0_15px_rgba(239,68,68,0.1)]">
-            <Shield className="w-5 h-5 animate-pulse" />
+    <div className="flex flex-col min-h-screen text-gray-100 bg-[#030712] font-sans">
+      
+      {/* 1. Persistent Top Strip (Ambient Awareness Telemetry Layer) */}
+      <header className="bg-[#0b0f19] border-b border-cyber-border px-6 py-3 flex flex-row items-center justify-between gap-4 print:hidden select-none h-16 shrink-0 z-30">
+        
+        {/* Left Branding */}
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded border border-cyber-blue/30 bg-cyber-blue/10 flex items-center justify-center text-cyber-blue shadow-[0_0_12px_rgba(6,182,212,0.15)]">
+            <Shield className="w-4.5 h-4.5 animate-pulse" />
           </div>
-          <div>
-            <h1 className="text-base font-extrabold tracking-wider font-mono text-white flex items-center gap-2">
-              SENTINEL-47 // RESILIENCE PLATFORM
+          <div className="text-left">
+            <h1 className="text-xs font-black tracking-widest font-mono text-white">
+              SENTINEL-47 // COMMAND CONTROL
             </h1>
-            <p className="text-[10px] text-gray-400 font-mono tracking-wide">
-              INTEGRATED NATIONAL ENERGY SUPPLY RESPONSE SYSTEMS // LEVEL 1 SECURE
+            <p className="text-[9px] text-gray-400 font-mono tracking-wide">
+              INTEGRATED CRUDE OIL RISK RESPONSE // SECURITY LEVEL 1
             </p>
           </div>
         </div>
 
-        {/* Tactical Actions */}
+        {/* Center: Ambient Awareness Telemetry */}
+        <div className="hidden md:flex items-center gap-6 text-[10px] font-mono text-gray-400">
+          
+          {/* Brent crude baseline price */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-gray-500">BRENT:</span>
+            <span className="text-white font-bold">${brentPrice.toFixed(2)}</span>
+          </div>
+
+          {/* Corridor Risk telemetry and dots */}
+          {(["Hormuz", "Red Sea", "Suez"] as const).map((corridorName) => {
+            const data = corridors[corridorName] || { score: 15, status: "STABLE" };
+            const isCritical = data.status === "CRITICAL";
+            const isWarning = data.status === "WARNING";
+            const dotColor = isCritical ? "bg-cyber-red animate-pulse" : isWarning ? "bg-cyber-orange animate-pulse" : "bg-cyber-green";
+            const textColor = isCritical ? "text-cyber-red" : isWarning ? "text-cyber-orange" : "text-cyber-green";
+            
+            return (
+              <div key={corridorName} className="flex items-center gap-1.5 border-l border-cyber-border/80 pl-4">
+                <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
+                <span className="text-gray-500 uppercase">{corridorName}:</span>
+                <span className={`${textColor} font-bold`}>{data.score}%</span>
+              </div>
+            );
+          })}
+
+          {/* Overall DEFCON system status */}
+          <div className="flex items-center gap-1.5 border-l border-cyber-border/80 pl-4">
+            <span className="text-gray-500">SYSTEM STATE:</span>
+            <span className="text-cyber-blue font-bold uppercase tracking-wide">
+              {demoActive ? "DEMO_TEST_RUN" : corridors["Red Sea"]?.status === "WARNING" || corridors.Hormuz?.status === "CRITICAL" ? "WARN_EVAL" : "ACTIVE_STANDBY"}
+            </span>
+          </div>
+        </div>
+
+        {/* Right Action buttons */}
         <div className="flex items-center gap-3">
-          <div className="hidden lg:flex flex-col text-right font-mono text-[9px] text-gray-500 border-r border-cyber-border/60 pr-4">
-            <div>SYSTEM ENCRYPTION: SECURE // TLS 1.3</div>
-            <div>Refinery Sync: 4 active facilities</div>
+          <div className="hidden xl:flex flex-col text-right font-mono text-[8px] text-gray-500 leading-normal border-r border-cyber-border/50 pr-4">
+            <div>SYSTEM ENCRYPTION: SECURE</div>
+            <div>Refinery Sync: 4 facilities</div>
           </div>
 
           <button
-            onClick={startGuidedDemo}
-            disabled={demoState.isActive}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded font-mono text-xs font-black tracking-widest border transition-all ${
-              demoState.isActive
-                ? "bg-cyber-orange/10 border-cyber-orange/30 text-cyber-orange cursor-not-allowed"
-                : "bg-gradient-to-r from-cyber-orange to-cyber-indigo text-white border-cyber-orange hover:shadow-[0_0_20px_rgba(249,115,22,0.4)] hover:scale-[1.02]"
+            onClick={demoActive ? stopDemo : startDemo}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded font-mono text-[10px] font-black tracking-wider border transition-all ${
+              demoActive
+                ? "bg-cyber-red/10 border-cyber-red/30 text-cyber-red hover:bg-cyber-red hover:text-white"
+                : "bg-gradient-to-r from-cyber-orange to-cyber-indigo text-white border-cyber-orange hover:shadow-[0_0_15px_rgba(249,115,22,0.25)] hover:scale-[1.01]"
             }`}
           >
-            <Play className={`w-3.5 h-3.5 ${demoState.isActive ? "animate-spin" : ""}`} />
-            {demoState.isActive ? "RUNNING TOUR..." : "RUN GUIDED 90S DEMO"}
+            <Play className={`w-3 h-3 ${demoActive && !demoPaused ? "animate-spin" : ""}`} />
+            {demoActive ? "STOP TOUR" : "RUN GUIDED DEMO"}
           </button>
         </div>
       </header>
 
-      {/* Demo Mode Overlay Banner */}
-      {demoState.isActive && (
-        <div className="bg-cyber-orange border-b border-orange-600 px-6 py-3 text-center flex items-center justify-center gap-3 animate-pulse font-mono text-xs font-extrabold text-black z-30 print:hidden">
-          <Cpu className="w-4 h-4 animate-spin-slow" />
-          <span>{demoState.text}</span>
+      {/* 2. Demo Narration Overlay HUD (Matches Command Center Aesthetic) */}
+      {demoActive && (
+        <div className="bg-[#0b0f19] border-b border-cyber-orange px-6 py-2.5 flex flex-col sm:flex-row items-center justify-between gap-4 font-mono text-xs font-bold text-white z-40 print:hidden select-none animate-pulse">
+          <div className="flex items-center gap-2">
+            <Cpu className="w-4 h-4 text-cyber-orange animate-spin-slow" />
+            <span className="text-cyber-orange uppercase">Guided Narrated Tour ({demoTime}s / 90s):</span>
+            <span className="text-gray-300 font-medium italic">{demoText}</span>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <button
+              onClick={togglePause}
+              className="flex items-center gap-1 px-3 py-1 bg-cyber-orange/15 border border-cyber-orange/30 text-cyber-orange hover:bg-cyber-orange hover:text-black rounded text-[10px] font-black"
+            >
+              {demoPaused ? "RESUME" : "PAUSE"}
+            </button>
+            <button
+              onClick={skipDemo}
+              className="px-3 py-1 bg-cyber-indigo/25 border border-cyber-indigo/40 text-cyber-indigo hover:bg-cyber-indigo hover:text-white rounded text-[10px] font-black"
+            >
+              SKIP TO MEMO
+            </button>
+            <button
+              onClick={stopDemo}
+              className="px-3 py-1 bg-cyber-red/15 border border-cyber-red/30 text-cyber-red hover:bg-cyber-red hover:text-white rounded text-[10px] font-black"
+            >
+              EXIT TOUR
+            </button>
+          </div>
         </div>
       )}
 
-      {/* Dashboard Main Grid Layout */}
-      <main className="flex-1 px-6 mt-6 grid grid-cols-1 xl:grid-cols-2 gap-6 print:block print:px-0 print:mt-0">
-        {/* Left Side: Telemetry & Shocks */}
-        <div className="flex flex-col gap-6 print:hidden">
-          {/* Module 1: Geopolitical Intelligence */}
-          <div className={demoState.step === 1 || demoState.step === 2 ? "ring-2 ring-cyber-orange glow-amber rounded-lg" : ""}>
+      {/* 3. Main Dashboard Workspace Layout */}
+      <div className="flex-1 flex flex-row min-h-0 relative overflow-hidden">
+        
+        {/* Left Side: Vertical Navigation Icon Rail */}
+        <div className="w-16 min-h-screen bg-[#070b13] border-r border-cyber-border flex flex-col items-center py-6 gap-6 shrink-0 print:hidden select-none z-20">
+          {navItems.map((item, idx) => {
+            const isActive = activeTab === idx;
+            return (
+              <div key={idx} className="relative group">
+                <button
+                  onClick={() => {
+                    if (demoActive) {
+                      // Pause demo if user manually navigates to inspect
+                      setDemoPaused(true);
+                    }
+                    setActiveTab(idx);
+                  }}
+                  className={`w-10 h-10 rounded flex items-center justify-center transition-all ${
+                    isActive
+                      ? "bg-cyber-blue/10 border border-cyber-blue text-cyber-blue shadow-[0_0_10px_rgba(6,182,212,0.2)]"
+                      : "bg-transparent border border-transparent text-gray-500 hover:text-white hover:bg-gray-800/40"
+                  }`}
+                >
+                  <item.icon className="w-4.5 h-4.5" />
+                </button>
+                {/* Active side light bar */}
+                {isActive && (
+                  <div className="absolute left-[-12px] top-2 w-1.5 h-6 bg-cyber-blue rounded-r shadow-[0_0_8px_rgba(6,182,212,0.8)]" />
+                )}
+                {/* Tooltip on hover */}
+                <div className="absolute left-14 top-2 hidden group-hover:block bg-[#0b0f19] border border-cyber-border text-white text-[10px] font-mono py-1.5 px-3 rounded whitespace-nowrap z-50 shadow-md">
+                  {item.label}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Right Side: Main view display container with slide-and-crossfade transitions */}
+        <div className="flex-1 relative min-h-0 bg-cyber-bg z-10">
+          
+          {/* View 1: Geopolitical Risk Intelligence */}
+          <div className={`absolute inset-0 p-6 overflow-y-auto transition-all duration-300 transform ${
+            activeTab === 0 
+              ? "opacity-100 translate-x-0 scale-100 pointer-events-auto" 
+              : "opacity-0 -translate-x-8 pointer-events-none scale-95"
+          }`}>
             <RiskIntelligence
               corridors={corridors}
               signals={signals}
@@ -426,8 +615,12 @@ export default function Dashboard() {
             />
           </div>
 
-          {/* Module 2: Scenario Modeller */}
-          <div className={demoState.step === 3 ? "ring-2 ring-cyber-orange glow-amber rounded-lg" : ""}>
+          {/* View 2: Disruption Scenario Modeller */}
+          <div className={`absolute inset-0 p-6 overflow-y-auto transition-all duration-300 transform ${
+            activeTab === 1 
+              ? "opacity-100 translate-x-0 scale-100 pointer-events-auto" 
+              : "opacity-0 translate-x-8 pointer-events-none scale-95"
+          }`}>
             <ScenarioModeller
               activeScenarioId={activeScenarioId}
               customCapacityLoss={customCapacityLoss}
@@ -443,20 +636,26 @@ export default function Dashboard() {
               }}
             />
           </div>
-        </div>
 
-        {/* Right Side: Options & Briefings */}
-        <div className="flex flex-col gap-6 print:block print:p-0">
-          {/* Module 3: Procurement Orchestrator */}
-          <div className={`print:hidden ${demoState.step === 4 ? "ring-2 ring-cyber-orange glow-amber rounded-lg" : ""}`}>
+          {/* View 3: Adaptive Procurement Orchestrator */}
+          <div className={`absolute inset-0 p-6 overflow-y-auto transition-all duration-300 transform ${
+            activeTab === 2 
+              ? "opacity-100 translate-x-0 scale-100 pointer-events-auto" 
+              : "opacity-0 translate-x-8 pointer-events-none scale-95"
+          }`}>
             <ProcurementOrchestrator
               options={procurementOptions}
               isLoading={isLoadingProcurement}
+              visibleCount={procurementVisibleCount}
             />
           </div>
 
-          {/* Module 4: Executive Policy Memo */}
-          <div className={demoState.step === 5 ? "ring-2 ring-cyber-orange glow-amber rounded-lg" : ""}>
+          {/* View 4: Executive Memo Agent */}
+          <div className={`absolute inset-0 p-6 overflow-y-auto transition-all duration-300 transform print:relative print:inset-auto print:p-0 print:transform-none ${
+            activeTab === 3 
+              ? "opacity-100 translate-x-0 scale-100 pointer-events-auto" 
+              : "opacity-0 translate-x-8 pointer-events-none scale-95 print:block"
+          }`}>
             <ExecutiveMemo
               memo={memo}
               isLoading={isLoadingMemo}
@@ -465,8 +664,11 @@ export default function Dashboard() {
               }
             />
           </div>
+
         </div>
-      </main>
+
+      </div>
+
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { Download, FileText, Printer, ShieldAlert } from "lucide-react";
 
 interface MemoStructure {
@@ -27,6 +27,28 @@ interface ExecutiveMemoProps {
 
 export default function ExecutiveMemo({ memo, isLoading, onGenerate }: ExecutiveMemoProps) {
   const memoRef = useRef<HTMLDivElement>(null);
+  const [localCompiling, setLocalCompiling] = useState(false);
+  const [compileProgress, setCompileProgress] = useState(0);
+
+  useEffect(() => {
+    if (isLoading) {
+      setLocalCompiling(true);
+      setCompileProgress(0);
+      let progress = 0;
+      const interval = setInterval(() => {
+        progress += 4;
+        if (progress >= 100) {
+          progress = 100;
+          clearInterval(interval);
+          setTimeout(() => {
+            setLocalCompiling(false);
+          }, 350);
+        }
+        setCompileProgress(progress);
+      }, 50); // 50ms * 25 updates = 1.25s
+      return () => clearInterval(interval);
+    }
+  }, [isLoading]);
 
   const handlePrint = () => {
     if (typeof window !== "undefined") {
@@ -35,7 +57,7 @@ export default function ExecutiveMemo({ memo, isLoading, onGenerate }: Executive
   };
 
   return (
-    <div className="cyber-panel p-6 rounded-lg border border-cyber-border h-full flex flex-col gap-6">
+    <div className="cyber-panel p-6 rounded-lg border border-cyber-border h-full flex flex-col gap-6 select-none">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-cyber-border pb-4 print:hidden">
         <div className="flex items-center gap-3">
@@ -55,10 +77,10 @@ export default function ExecutiveMemo({ memo, isLoading, onGenerate }: Executive
         <div className="flex items-center gap-2">
           <button
             onClick={onGenerate}
-            disabled={isLoading}
+            disabled={isLoading || localCompiling}
             className="px-3 py-1.5 bg-cyber-indigo/20 hover:bg-cyber-indigo/30 border border-cyber-indigo/40 hover:border-cyber-indigo rounded transition-all text-xs font-mono font-bold text-cyber-indigo hover:text-white disabled:opacity-50"
           >
-            {isLoading ? "COMPILING..." : "RE-COMPILE BRIEF"}
+            {isLoading || localCompiling ? "COMPILING..." : "RE-COMPILE BRIEF"}
           </button>
           <button
             onClick={handlePrint}
@@ -83,127 +105,158 @@ export default function ExecutiveMemo({ memo, isLoading, onGenerate }: Executive
         </div>
       </div>
 
-      {/* Official Memo Sheet Wrapper */}
-      <div className="flex-1 overflow-y-auto max-h-[500px] border border-cyber-border/80 bg-white text-gray-900 p-6 sm:p-8 rounded shadow-2xl font-serif text-left print:p-0 print:border-none print:shadow-none print:max-h-none print:bg-white print:text-black">
-        <div ref={memoRef} className="flex flex-col gap-6 max-w-2xl mx-auto print:mx-0 print:max-w-none">
-          {/* Dynamic Auto-Trigger conditions stamp */}
-          {memo.autoTriggerStatement && (
-            <div className="border border-red-500 bg-red-50 text-red-700 px-3 py-1.5 rounded font-mono text-[9px] font-bold flex items-center gap-2 select-none print:bg-white print:border-red-600 print:text-red-700 shrink-0">
-              <span className="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse" />
-              <span>{memo.autoTriggerStatement}</span>
+      {/* Compiler Screen vs Official Memo Sheet */}
+      {localCompiling ? (
+        <div className="flex-1 flex flex-col items-center justify-center min-h-[350px] border border-cyber-border/40 rounded bg-cyber-bg/50 select-none">
+          <div className="w-[320px] flex flex-col gap-2 font-mono text-xs">
+            <div className="flex justify-between text-cyber-indigo font-bold">
+              <span className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-cyber-indigo animate-ping" />
+                COMPILING EXECUTIVE BRIEF...
+              </span>
+              <span>{compileProgress}%</span>
             </div>
-          )}
-
-          {/* Official Letterhead */}
-          <div className="text-center border-b-4 border-double border-gray-800 pb-4">
-            <h3 className="font-sans font-bold tracking-widest text-[11px] uppercase text-gray-500 print:text-gray-700">
-              Confidential // For Internal Use Only
-            </h3>
-            <h1 className="text-sm font-sans font-black tracking-widest uppercase mt-2 text-gray-950">
-              Sentinel-47 Energy Supply Security taskforce
-            </h1>
-            <h2 className="text-[10px] font-sans tracking-wide uppercase text-gray-600 mt-0.5">
-              Coordinated Security response Framework — Ministry of Petroleum & Natural Gas
-            </h2>
-            <div className="text-[9px] font-mono mt-1 text-gray-500">
-              Ref: {memo.memoId} // New Delhi, India
+            <div className="h-2 w-full bg-slate-955 border border-slate-800 rounded overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-cyber-indigo/80 to-cyber-indigo transition-all duration-75 ease-out"
+                style={{ width: `${compileProgress}%` }}
+              />
             </div>
-          </div>
-
-          {/* Memorandum Header Fields */}
-          <div className="grid grid-cols-6 border-b border-gray-400 pb-3 font-sans text-xs font-semibold gap-y-2 text-gray-800">
-            <div className="col-span-1 text-gray-500 uppercase tracking-wider text-[10px]">Date:</div>
-            <div className="col-span-5 font-serif text-gray-900">{memo.date}</div>
-
-            <div className="col-span-1 text-gray-500 uppercase tracking-wider text-[10px]">To:</div>
-            <div className="col-span-5 text-gray-900 uppercase font-bold">{memo.to}</div>
-
-            <div className="col-span-1 text-gray-500 uppercase tracking-wider text-[10px]">From:</div>
-            <div className="col-span-5 text-gray-900 uppercase">{memo.from}</div>
-
-            <div className="col-span-1 text-gray-500 uppercase tracking-wider text-[10px]">Subject:</div>
-            <div className="col-span-5 text-gray-950 font-bold uppercase underline">
-              {memo.subject}
-            </div>
-          </div>
-
-          {/* Executive Summary */}
-          <div>
-            <h4 className="font-sans font-bold text-xs text-gray-500 uppercase tracking-wider mb-2">
-              1. Strategic Executive Summary
-            </h4>
-            <p className="text-xs leading-relaxed text-gray-800 text-justify">
-              {memo.executiveSummary}
-            </p>
-          </div>
-
-          {/* Section 2: Risk Telemetry */}
-          <div>
-            <h4 className="font-sans font-bold text-xs text-gray-500 uppercase tracking-wider mb-2">
-              2. Geopolitical Corridor Assessment
-            </h4>
-            <ul className="list-disc pl-5 flex flex-col gap-1.5 text-xs text-gray-800">
-              {memo.riskAssessment.map((risk, idx) => (
-                <li key={idx} className="leading-relaxed text-justify">
-                  {risk}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Section 3: Cascading Economic Impact */}
-          <div>
-            <h4 className="font-sans font-bold text-xs text-gray-500 uppercase tracking-wider mb-2">
-              3. Numbered Cascading Impact Findings
-            </h4>
-            <ul className="list-disc pl-5 flex flex-col gap-1.5 text-xs text-gray-800 font-medium">
-              {memo.impactFindings.map((finding, idx) => (
-                <li key={idx} className="leading-relaxed text-justify text-gray-900">
-                  {finding}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Section 4: Sourcing Directives */}
-          <div>
-            <h4 className="font-sans font-bold text-xs text-gray-500 uppercase tracking-wider mb-2">
-              4. Actionable Sourcing & Routing Directives
-            </h4>
-            <ul className="list-disc pl-5 flex flex-col gap-1.5 text-xs text-gray-800">
-              {memo.procurementDirectives.map((directive, idx) => (
-                <li key={idx} className="leading-relaxed text-justify">
-                  {directive}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Section 5: Strategic Reserve Release (SPR) */}
-          <div>
-            <h4 className="font-sans font-bold text-xs text-gray-500 uppercase tracking-wider mb-2">
-              5. Strategic Petroleum Reserve (SPR) Directive
-            </h4>
-            <p className="text-xs leading-relaxed text-gray-800 text-justify italic font-semibold border-l-2 border-gray-800 pl-3">
-              {memo.sprDirectives}
-            </p>
-          </div>
-
-          {/* Signature Block */}
-          <div className="mt-8 border-t border-gray-200 pt-4 flex flex-col items-end text-right font-sans">
-            <div className="w-[200px] border-b border-gray-400 h-10 print:h-8" />
-            <span className="text-[10px] font-bold text-gray-900 mt-1 uppercase">
-              {memo.signature}
-            </span>
-            <span className="text-[9px] text-gray-500 uppercase">
-              Sentinel-47 Decision Synthesis Engine
+            <span className="text-[9px] text-gray-500 uppercase tracking-wider text-center mt-1 animate-pulse">
+              Synthesizing corridor threats, pricing projections, sourcing routes & SPR directives
             </span>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="flex-1 overflow-y-auto max-h-[580px] border border-cyber-border/80 bg-white text-gray-900 p-8 sm:p-10 rounded shadow-2xl font-serif text-left print:p-0 print:border-none print:shadow-none print:max-h-none print:bg-white print:text-black">
+          <div ref={memoRef} className="flex flex-col gap-6 max-w-2xl mx-auto print:mx-0 print:max-w-none animate-fadeIn">
+            
+            {/* Dynamic Auto-Trigger conditions stamp */}
+            {memo.autoTriggerStatement && (
+              <div className="border border-red-500 bg-red-50 text-red-700 px-3.5 py-2 rounded font-mono text-[9px] font-bold flex items-center gap-2 select-none print:bg-white print:border-red-600 print:text-red-700 shrink-0">
+                <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse" />
+                <span>{memo.autoTriggerStatement}</span>
+              </div>
+            )}
+
+            {/* Official Letterhead */}
+            <div className="text-center border-b-4 border-double border-gray-800 pb-4">
+              <h3 className="font-sans font-bold tracking-widest text-[11px] uppercase text-gray-500 print:text-gray-700">
+                Confidential // For Internal Use Only
+              </h3>
+              <h1 className="text-sm font-sans font-black tracking-widest uppercase mt-2 text-gray-950">
+                Sentinel-47 Energy Supply Security taskforce
+              </h1>
+              <h2 className="text-[10px] font-sans tracking-wide uppercase text-gray-600 mt-0.5">
+                Coordinated Security response Framework — Ministry of Petroleum & Natural Gas
+              </h2>
+              <div className="text-[9px] font-mono mt-1 text-gray-500">
+                Ref: {memo.memoId} // New Delhi, India
+              </div>
+            </div>
+
+            {/* Memorandum Header Fields */}
+            <div className="grid grid-cols-6 border-b border-gray-400 pb-3 font-sans text-xs font-semibold gap-y-2 text-gray-800">
+              <div className="col-span-1 text-gray-500 uppercase tracking-wider text-[10px]">Date:</div>
+              <div className="col-span-5 font-serif text-gray-900">{memo.date}</div>
+
+              <div className="col-span-1 text-gray-500 uppercase tracking-wider text-[10px]">To:</div>
+              <div className="col-span-5 text-gray-900 uppercase font-bold">{memo.to}</div>
+
+              <div className="col-span-1 text-gray-500 uppercase tracking-wider text-[10px]">From:</div>
+              <div className="col-span-5 text-gray-900 uppercase">{memo.from}</div>
+
+              <div className="col-span-1 text-gray-500 uppercase tracking-wider text-[10px]">Subject:</div>
+              <div className="col-span-5 text-gray-950 font-bold uppercase underline">
+                {memo.subject}
+              </div>
+            </div>
+
+            {/* Executive Summary */}
+            <div>
+              <h4 className="font-sans font-bold text-xs text-gray-500 uppercase tracking-wider mb-2">
+                1. Strategic Executive Summary
+              </h4>
+              <p className="text-xs leading-relaxed text-gray-800 text-justify">
+                {memo.executiveSummary}
+              </p>
+            </div>
+
+            {/* Section 2: Risk Telemetry */}
+            <div>
+              <h4 className="font-sans font-bold text-xs text-gray-500 uppercase tracking-wider mb-2">
+                2. Geopolitical Corridor Assessment
+              </h4>
+              <ul className="list-disc pl-5 flex flex-col gap-1.5 text-xs text-gray-800">
+                {memo.riskAssessment.map((risk, idx) => (
+                  <li key={idx} className="leading-relaxed text-justify">
+                    {risk}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Section 3: Cascading Economic Impact */}
+            <div>
+              <h4 className="font-sans font-bold text-xs text-gray-500 uppercase tracking-wider mb-2">
+                3. Numbered Cascading Impact Findings
+              </h4>
+              <ul className="list-disc pl-5 flex flex-col gap-1.5 text-xs text-gray-800 font-medium">
+                {memo.impactFindings.map((finding, idx) => (
+                  <li key={idx} className="leading-relaxed text-justify text-gray-900">
+                    {finding}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Section 4: Sourcing Directives */}
+            <div>
+              <h4 className="font-sans font-bold text-xs text-gray-500 uppercase tracking-wider mb-2">
+                4. Actionable Sourcing & Routing Directives
+              </h4>
+              <ul className="list-disc pl-5 flex flex-col gap-1.5 text-xs text-gray-800">
+                {memo.procurementDirectives.map((directive, idx) => (
+                  <li key={idx} className="leading-relaxed text-justify">
+                    {directive}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Section 5: Strategic Reserve Release (SPR) */}
+            <div>
+              <h4 className="font-sans font-bold text-xs text-gray-500 uppercase tracking-wider mb-2">
+                5. Strategic Petroleum Reserve (SPR) Directive
+              </h4>
+              <p className="text-xs leading-relaxed text-gray-800 text-justify italic font-semibold border-l-2 border-gray-800 pl-3">
+                {memo.sprDirectives}
+              </p>
+            </div>
+
+            {/* Signature Block */}
+            <div className="mt-8 border-t border-gray-200 pt-4 flex flex-col items-end text-right font-sans">
+              <div className="w-[200px] border-b border-gray-400 h-10 print:h-8" />
+              <span className="text-[10px] font-bold text-gray-900 mt-1 uppercase">
+                {memo.signature}
+              </span>
+              <span className="text-[9px] text-gray-500 uppercase">
+                Sentinel-47 Decision Synthesis Engine
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* CSS Print Styles to Isolate the Memo Document */}
       <style jsx global>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.4s ease-out forwards;
+        }
         @media print {
           body * {
             visibility: hidden;

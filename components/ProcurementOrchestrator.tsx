@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { Anchor, ArrowRight, Brain, Clock, ShieldCheck, Ship, Tag } from "lucide-react";
+import { Anchor, Brain, Clock, ShieldCheck, Ship, Tag } from "lucide-react";
+import AnimatedNumber from "./AnimatedNumber";
 
 interface ProcurementOption {
   name: string;
@@ -17,9 +18,14 @@ interface ProcurementOption {
 interface ProcurementOrchestratorProps {
   options: ProcurementOption[];
   isLoading: boolean;
+  visibleCount?: number;
 }
 
-export default function ProcurementOrchestrator({ options, isLoading }: ProcurementOrchestratorProps) {
+export default function ProcurementOrchestrator({ 
+  options, 
+  isLoading,
+  visibleCount
+}: ProcurementOrchestratorProps) {
   const [selectedRoute, setSelectedRoute] = useState<number | null>(0);
 
   const getScoreColor = (score: number) => {
@@ -40,8 +46,10 @@ export default function ProcurementOrchestrator({ options, isLoading }: Procurem
     }
   };
 
+  const visibleLimit = visibleCount !== undefined ? visibleCount : options.length;
+
   return (
-    <div className="cyber-panel p-6 rounded-lg border border-cyber-border h-full flex flex-col gap-6">
+    <div className="cyber-panel p-6 rounded-lg border border-cyber-border h-full flex flex-col gap-6 select-none">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-cyber-border pb-4">
         <div className="flex items-center gap-3">
@@ -60,51 +68,68 @@ export default function ProcurementOrchestrator({ options, isLoading }: Procurem
       </div>
 
       {/* Model Honesty Banner */}
-      <div className="bg-[#0b0f19]/40 border border-cyber-border/50 p-2 px-3 rounded flex items-center justify-between text-[9px] font-mono text-gray-500">
+      <div className="bg-[#0b0f19]/40 border border-cyber-border/50 p-2.5 px-3 rounded flex items-center justify-between text-[9px] font-mono text-gray-500">
         <span>LOGISTICS PORT CONGESTION: MODELED ILLUSTRATIVE DATA</span>
-        <span className="text-cyber-blue font-bold">UPDATED: REAL-TIME APPLIED DISRUPTION</span>
+        <span className="text-cyber-blue font-bold font-semibold uppercase">UPDATED: REAL-TIME APPLIED DISRUPTION</span>
       </div>
 
-      {/* Main List */}
-      <div className="flex flex-col gap-3 flex-1 overflow-y-auto max-h-[360px] pr-1 mt-1">
+      {/* Scrollable Layout Container */}
+      <div className="flex-1 overflow-y-auto flex flex-col gap-4 mt-1 pr-1 max-h-[550px]">
+        
         {options.map((opt, idx) => {
           const isSelected = selectedRoute === idx;
+          const isVisible = idx < visibleLimit;
           const scoreColor = getScoreColor(opt.overallScore);
 
           return (
             <div
               key={idx}
               onClick={() => setSelectedRoute(idx)}
-              className={`p-4 rounded border cursor-pointer transition-all text-left flex flex-col gap-3 ${
-                isSelected
+              style={{ transitionDelay: `${idx * 50}ms` }}
+              className={`p-5 rounded border cursor-pointer transition-all duration-300 transform text-left flex flex-col gap-3.5 ${
+                !isVisible ? "opacity-0 translate-y-4 pointer-events-none" : "opacity-100 translate-y-0"
+              } ${
+                idx === 0
+                  ? "border-amber-500/50 bg-amber-500/[0.03] shadow-[0_0_20px_rgba(245,158,11,0.15)] ring-1 ring-amber-500/10"
+                  : isSelected
                   ? "bg-cyber-blue/5 border-cyber-blue shadow-[0_0_15px_rgba(6,182,212,0.15)]"
                   : "bg-[#0b0f19]/40 border-cyber-border/60 hover:bg-[#0b0f19]/80 hover:border-gray-700"
               }`}
             >
               {/* Row Header */}
               <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-6 h-6 rounded-full bg-gray-800 flex items-center justify-center text-xs font-mono font-bold text-gray-400">
-                    #{idx + 1}
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-white font-mono uppercase tracking-wide">
-                      {opt.name}
-                    </h4>
-                    <span className="text-[10px] text-gray-400 font-sans flex items-center gap-1 mt-0.5">
-                      <Anchor className="w-3 h-3 text-gray-500" /> Source: {opt.source}
-                    </span>
+                <div className="flex-1">
+                  {idx === 0 && (
+                    <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-400 text-[8px] uppercase tracking-widest font-mono font-extrabold w-fit mb-1.5 animate-pulse">
+                      <ShieldCheck className="w-3.5 h-3.5 text-amber-400" /> Recommended Logistics Action
+                    </div>
+                  )}
+                  
+                  <div className="flex items-center gap-2.5">
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-mono font-bold ${
+                      idx === 0 ? "bg-amber-500/20 text-amber-400" : "bg-gray-800 text-gray-400"
+                    }`}>
+                      #{idx + 1}
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-white font-mono uppercase tracking-wide">
+                        {opt.name}
+                      </h4>
+                      <span className="text-[10px] text-gray-400 font-sans flex items-center gap-1 mt-0.5">
+                        <Anchor className="w-3 h-3 text-gray-500" /> Source: {opt.source}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                <div className={`px-2 py-1 rounded border text-xs font-mono font-extrabold flex flex-col items-center justify-center min-w-[50px] ${scoreColor}`}>
+                <div className={`px-2.5 py-1.5 rounded border text-sm font-mono font-black flex flex-col items-center justify-center min-w-[55px] ${scoreColor}`}>
                   <span className="text-[8px] uppercase tracking-wider text-gray-400 font-normal">Score</span>
-                  {opt.overallScore}
+                  <AnimatedNumber value={opt.overallScore} duration={500} formatter={(n) => `${Math.round(n)}`} />
                 </div>
               </div>
 
               {/* Stats Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-cyber-bg/40 p-2.5 rounded border border-cyber-border/40 text-[10px] font-mono">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-cyber-bg/40 p-3 rounded border border-cyber-border/40 text-[10px] font-mono">
                 {/* Price Premium */}
                 <div className="flex items-center gap-2">
                   <Tag className="w-3.5 h-3.5 text-cyber-blue" />
@@ -125,7 +150,9 @@ export default function ProcurementOrchestrator({ options, isLoading }: Procurem
                   <Clock className="w-3.5 h-3.5 text-cyber-blue" />
                   <div>
                     <span className="text-gray-500 block uppercase text-[8px]">Transit</span>
-                    <span className="text-white font-semibold">{opt.transitDays} Days</span>
+                    <span className="text-white font-semibold">
+                      <AnimatedNumber value={opt.transitDays} duration={500} formatter={(n) => `${Math.round(n)}`} /> Days
+                    </span>
                   </div>
                 </div>
 
@@ -145,19 +172,21 @@ export default function ProcurementOrchestrator({ options, isLoading }: Procurem
                   <ShieldCheck className="w-3.5 h-3.5 text-cyber-blue" />
                   <div>
                     <span className="text-gray-500 block uppercase text-[8px]">Refinery Match</span>
-                    <span className="text-white font-semibold">{opt.compatibility}%</span>
+                    <span className="text-white font-semibold">
+                      <AnimatedNumber value={opt.compatibility} duration={500} formatter={(n) => `${Math.round(n)}%`} />
+                    </span>
                   </div>
                 </div>
               </div>
 
               {/* Chain of Thought Reasoning Panel */}
-              {isSelected && (
+              {(isSelected || idx === 0) && (
                 <div className="border-t border-cyber-border/50 pt-3 mt-1 flex flex-col gap-1.5">
                   <span className="text-[8px] tracking-wider text-cyber-blue font-mono font-bold uppercase flex items-center gap-1">
                     <Brain className="w-3 h-3 text-cyber-blue animate-pulse" />
                     Agentic Reasoning & Strategic Justification
                   </span>
-                  <div className="bg-[#050814] p-3 border border-cyber-border/60 rounded text-[10px] font-mono text-gray-300 leading-relaxed italic">
+                  <div className="bg-[#050814] p-3.5 border border-cyber-border/60 rounded text-[10px] font-mono text-gray-300 leading-relaxed italic">
                     {opt.reasoning}
                   </div>
                 </div>
