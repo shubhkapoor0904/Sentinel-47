@@ -328,6 +328,14 @@ export default function ExecutiveMemo({ memo, isLoading, onGenerate, gdpDrag }: 
                 Sentinel-47 Decision Synthesis Engine
               </span>
             </div>
+
+            {/* Human Authorization Disclaimer */}
+            <div className="mt-8 pt-4 border-t border-gray-200 text-center font-sans tracking-wider text-[8px] uppercase text-gray-400 print:text-gray-500 leading-normal select-none">
+              This brief is a decision-support recommendation only. All directives
+              require human authorization and review by qualified officials before
+              execution. Sentinel-47 accelerates analysis — it does not act
+              autonomously.
+            </div>
           </div>
         </div>
       )}

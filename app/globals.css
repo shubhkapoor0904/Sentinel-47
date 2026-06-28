@@ -170,3 +170,25 @@ body {
     color: #b91c1c !important;
   }
 }
+
+/* Staggered Node Cascade Ripple Animation */
+@keyframes staggerPulse {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.06);
+    filter: brightness(1.25);
+    box-shadow: 0 0 14px var(--pulse-color);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    filter: brightness(1);
+  }
+}
+
+.animate-stagger-node {
+  animation: staggerPulse 0.8s ease-in-out;
+  animation-delay: var(--hop-delay);
+}
