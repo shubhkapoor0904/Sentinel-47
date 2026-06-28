@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
-import { Anchor, Brain, Clock, ShieldCheck, Ship, Tag } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Anchor, Brain, Clock, ShieldCheck, Ship, Tag, DollarSign, Shield, ChevronDown, ChevronUp } from "lucide-react";
 import AnimatedNumber from "./AnimatedNumber";
 
 interface ProcurementOption {
@@ -27,6 +27,32 @@ export default function ProcurementOrchestrator({
   visibleCount
 }: ProcurementOrchestratorProps) {
   const [selectedRoute, setSelectedRoute] = useState<number | null>(0);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [animationStep, setAnimationStep] = useState(0);
+
+  // Trigger staggered debate reveal animation when options change
+  useEffect(() => {
+    setAnimationStep(0);
+    if (!options || options.length === 0) return;
+
+    const timer1 = setTimeout(() => {
+      setAnimationStep(1);
+    }, 300);
+
+    const timer2 = setTimeout(() => {
+      setAnimationStep(2);
+    }, 600);
+
+    const timer3 = setTimeout(() => {
+      setAnimationStep(3);
+    }, 1000);
+
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
+    };
+  }, [options]);
 
   const getScoreColor = (score: number) => {
     if (score >= 85) return "text-cyber-green border-cyber-green/30 bg-cyber-green/5";
@@ -46,7 +72,58 @@ export default function ProcurementOrchestrator({
     }
   };
 
+  const formatPremium = (val: number, name: string) => {
+    const isSpr = name.toLowerCase().includes("spr") || name.toLowerCase().includes("strategic");
+    if (isSpr || val === 0) return "₹0/bbl";
+    const usdStr = val < 0 ? `-$${Math.abs(val).toFixed(2)}/bbl` : `+$${val.toFixed(2)}/bbl`;
+    const inrVal = val * 83; // 1 USD = 83 INR
+    const inrStr = val < 0 ? `-₹${Math.abs(inrVal).toFixed(2)}/bbl` : `+₹${inrVal.toFixed(2)}/bbl`;
+    return `${usdStr} (${inrStr})`;
+  };
+
   const visibleLimit = visibleCount !== undefined ? visibleCount : options.length;
+
+  // Stakeholder Agents dynamically generated evaluations
+  let costPick = options[0];
+  let securityPick = options[0];
+  let minPremium = 0;
+  let minTransit = 0;
+
+  if (options && options.length > 0) {
+    minPremium = options[0].pricePremium;
+    minTransit = options[0].transitDays;
+
+    options.forEach((opt) => {
+      if (opt.pricePremium < minPremium) {
+        minPremium = opt.pricePremium;
+      }
+      if (opt.transitDays < minTransit) {
+        minTransit = opt.transitDays;
+      }
+    });
+
+    const costOpts = options.filter((opt) => opt.pricePremium === minPremium);
+    costPick = costOpts.sort((a, b) => b.overallScore - a.overallScore)[0] || options[0];
+
+    const securityOpts = options.filter((opt) => opt.transitDays === minTransit);
+    securityPick = securityOpts.sort((a, b) => b.overallScore - a.overallScore)[0] || options[0];
+  }
+
+  const consensusPick = options[0];
+  const isAgreed = costPick && securityPick && costPick.name === securityPick.name;
+
+  let consensusStance = "";
+  if (consensusPick && costPick && securityPick) {
+    if (isAgreed) {
+      consensusStance = `CONSENSUS: ${consensusPick.name} — Both agents independently converge on the same optimal choice. Final ranking below reflects this alignment.`;
+    } else if (consensusPick.name === securityPick.name) {
+      consensusStance = `CONSENSUS: ${consensusPick.name} — Security Agent's concern outweighs Cost Agent's preference given active corridor risk. Final ranking below reflects this trade-off.`;
+    } else if (consensusPick.name === costPick.name) {
+      consensusStance = `CONSENSUS: ${consensusPick.name} — Cost Agent's premium savings outweigh Security Agent's exposure concerns under current market parameters. Final ranking below reflects this trade-off.`;
+    } else {
+      consensusStance = `CONSENSUS: ${consensusPick.name} — System balanced Cost Agent's preference for ${costPick.name} against Security Agent's safety focus on ${securityPick.name}. Final ranking below reflects this compromise.`;
+    }
+  }
 
   return (
     <div className="cyber-panel p-6 rounded-lg border border-cyber-border h-full flex flex-col gap-6 select-none">
@@ -75,6 +152,133 @@ export default function ProcurementOrchestrator({
 
       {/* Scrollable Layout Container */}
       <div className="flex-1 overflow-y-auto flex flex-col gap-4 mt-1 pr-1">
+        
+        {/* Agentic Reasoning / Debate Panel */}
+        {options && options.length > 0 && (
+          <div className="border border-cyber-border/80 bg-cyber-card/30 rounded p-4 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[9px] tracking-wider text-cyber-blue font-mono font-bold uppercase flex items-center gap-1.5">
+                <Brain className="w-3.5 h-3.5 text-cyber-blue animate-pulse" />
+                AGENTIC REASONING — SIMULATED STAKEHOLDER PRIORITIES
+              </span>
+              <button
+                onClick={() => setIsCollapsed(!isCollapsed)}
+                className="text-gray-400 hover:text-white transition-colors p-0.5 rounded hover:bg-gray-800"
+              >
+                {isCollapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+
+            {!isCollapsed && (
+              <div className="flex flex-col gap-3.5">
+                {/* Columns for Cost Agent and Security Agent */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Cost Agent */}
+                  <div
+                    className={`flex flex-col gap-2.5 p-3.5 rounded border border-cyber-blue/20 bg-cyber-blue/5 transition-all duration-500 transform ${
+                      animationStep >= 1 ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none"
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 border-b border-cyber-blue/15 pb-1.5">
+                      <div className="w-4.5 h-4.5 rounded-full bg-cyber-blue/10 border border-cyber-blue/30 flex items-center justify-center text-cyber-blue">
+                        <DollarSign className="w-2.5 h-2.5" />
+                      </div>
+                      <span className="text-[8.5px] font-mono font-bold text-cyber-blue uppercase tracking-wider">
+                        COST AGENT (MINIMIZE PREMIUM)
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-2.5">
+                      {options.slice(0, Math.min(3, options.length)).map((opt, idx) => {
+                        const isLowest = opt.pricePremium === minPremium;
+                        const premiumStr = formatPremium(opt.pricePremium, opt.name);
+                        let stance = "";
+                        if (isLowest) {
+                          stance = `Recommend ${opt.name} — lowest premium at ${premiumStr}.`;
+                        } else if (opt.name.toLowerCase().includes("spr") || opt.name.toLowerCase().includes("strategic") || opt.pricePremium === 0) {
+                          stance = `Favor ${opt.name} — stable pricing at ${premiumStr}.`;
+                        } else if (opt.pricePremium < 0) {
+                          stance = `Recommend ${opt.name} — excellent discount at ${premiumStr}.`;
+                        } else {
+                          stance = `Accept ${opt.name} — premium is ${premiumStr}.`;
+                        }
+                        return (
+                          <div key={idx} className="text-[10px] font-mono text-gray-300 border-l-2 border-cyber-blue/30 pl-2 leading-relaxed italic">
+                            "{stance}"
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Security Agent */}
+                  <div
+                    className={`flex flex-col gap-2.5 p-3.5 rounded border border-cyber-amber/20 bg-cyber-amber/5 transition-all duration-500 transform ${
+                      animationStep >= 2 ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none"
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 border-b border-cyber-amber/15 pb-1.5">
+                      <div className="w-4.5 h-4.5 rounded-full bg-cyber-amber/10 border border-cyber-amber/30 flex items-center justify-center text-cyber-amber">
+                        <Shield className="w-2.5 h-2.5" />
+                      </div>
+                      <span className="text-[8.5px] font-mono font-bold text-cyber-amber uppercase tracking-wider">
+                        SECURITY & SPEED AGENT (MINIMIZE TRANSIT)
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-2.5">
+                      {options.slice(0, Math.min(3, options.length)).map((opt, idx) => {
+                        const isSpr = opt.name.toLowerCase().includes("spr") || opt.name.toLowerCase().includes("strategic");
+                        const isLowestTransit = opt.transitDays === minTransit;
+                        let stance = "";
+                        if (isSpr || isLowestTransit || opt.transitDays <= 3) {
+                          stance = `Favor ${opt.name} — ${opt.transitDays}-day transit, zero maritime exposure.`;
+                        } else if (opt.transitDays > 20) {
+                          stance = `Reject ${opt.name} — ${opt.transitDays}-day transit unacceptable given active corridor hostilities. Favor ${securityPick.name} — ${securityPick.transitDays}-day transit, zero maritime exposure.`;
+                        } else {
+                          stance = `Accept ${opt.name} — ${opt.transitDays}-day transit with ${opt.portCongestion.toLowerCase()} congestion. Favor ${securityPick.name} for speed.`;
+                        }
+                        return (
+                          <div key={idx} className="text-[10px] font-mono text-gray-300 border-l-2 border-cyber-amber/30 pl-2 leading-relaxed italic">
+                            "{stance}"
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Consensus Line */}
+                <div
+                  className={`flex items-start gap-2.5 p-3 rounded border border-amber-500/20 bg-amber-500/5 shadow-[0_0_12px_rgba(245,158,11,0.05)] transition-all duration-500 transform ${
+                    animationStep >= 3 ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none"
+                  }`}
+                >
+                  <div className="w-4.5 h-4.5 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-500 shrink-0 mt-0.5 animate-pulse">
+                    <Brain className="w-2.5 h-2.5" />
+                  </div>
+                  <p className="text-[10px] font-mono text-amber-400 font-semibold leading-relaxed uppercase tracking-wide">
+                    {consensusStance}
+                  </p>
+                </div>
+
+                {/* Loading / Thinking indicator */}
+                {animationStep < 3 && (
+                  <div className="flex items-center gap-2 text-[8px] font-mono text-gray-500 justify-center uppercase animate-pulse">
+                    <span className="w-1 h-1 rounded-full bg-cyber-blue animate-ping" />
+                    <span>
+                      {animationStep === 0
+                        ? "Cost Agent analyzing price metrics..."
+                        : animationStep === 1
+                        ? "Security Agent analyzing transit corridor risks..."
+                        : "Synthesizing stakeholder consensus..."}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+
         
         {options.map((opt, idx) => {
           const isSelected = selectedRoute === idx;

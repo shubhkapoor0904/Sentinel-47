@@ -328,30 +328,67 @@ export default function ScenarioModeller({
               const refinerySev = getSeverity("refinery_run_rate", 100 - impact.refinery_run_rate_drop);
               const refineryColor = getSeverityColorClass(refinerySev);
               const refineryBarColor = getSeverityBarClass(refinerySev);
+
+              const drop = impact.refinery_run_rate_drop;
+              const spread = drop * 0.15;
+              const minDrop = drop - spread;
+              const maxDrop = drop + spread;
+              const midRate = 100 - drop;
+              const minRate = Math.max(0, 100 - maxDrop);
+              const maxRate = Math.min(100, 100 - minDrop);
+
+              const midPercent = midRate;
+              const minPercent = minRate;
+              const maxPercent = maxRate;
+
               return (
                 <div className="bg-[#0b0f19]/50 border border-cyber-border p-3.5 rounded flex flex-col justify-between h-[125px]">
-                  <span className="text-[9px] font-mono text-gray-500 uppercase font-bold">Refinery Run Rate</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[9px] font-mono text-gray-500 uppercase font-bold">Refinery Run Rate</span>
+                    <span className="text-[7.5px] font-mono text-cyber-orange border border-cyber-orange/30 bg-cyber-orange/5 px-1 py-0.5 rounded leading-none">MODELED RANGE</span>
+                  </div>
                   <div>
                     <div className={`text-lg font-bold font-mono tracking-tight ${refineryColor}`}>
-                      <AnimatedNumber value={100 - impact.refinery_run_rate_drop} duration={500} formatter={(n) => `${Math.round(n)}%`} />
+                      {drop === 0 ? (
+                        <span>100%</span>
+                      ) : (
+                        <>
+                          <AnimatedNumber value={minRate} duration={500} formatter={(n) => `${Math.round(n)}`} />
+                          %–
+                          <AnimatedNumber value={maxRate} duration={500} formatter={(n) => `${Math.round(n)}`} />
+                          %
+                        </>
+                      )}
                     </div>
                     <div className={`text-[9px] font-mono mt-0.5 ${refineryColor}`}>
-                      Drop: -<AnimatedNumber value={impact.refinery_run_rate_drop} duration={500} formatter={(n) => `${n.toFixed(1)}%`} />
+                      Drop: {drop === 0 ? "0.0%" : (
+                        <>
+                          -<AnimatedNumber value={minDrop} duration={500} formatter={(n) => `${n.toFixed(1)}`} />
+                          % to -
+                          <AnimatedNumber value={maxDrop} duration={500} formatter={(n) => `${n.toFixed(1)}`} />
+                          %
+                        </>
+                      )}
                     </div>
                   </div>
                   
                   {/* Animated Horizontal Tube */}
-                  <div className="relative h-4 w-full bg-slate-950 border border-slate-800 rounded overflow-hidden mt-2 select-none">
+                  <div className="relative h-4 w-full bg-slate-955 border border-slate-800 rounded overflow-hidden mt-2 select-none">
                     {/* Ghost Outline (representing 100% baseline) */}
                     <div className="absolute inset-0 border border-dashed border-cyber-green/40 rounded opacity-60 z-10 pointer-events-none" />
-                    {/* Current Fill */}
+                    {/* Shaded Band */}
                     <div
-                      className={`h-full bg-gradient-to-r ${refineryBarColor} transition-all duration-500 ease-out`}
-                      style={{ width: `${100 - impact.refinery_run_rate_drop}%` }}
+                      className={`absolute h-full bg-gradient-to-r ${refineryBarColor} opacity-40 transition-all duration-500 ease-out`}
+                      style={{ left: `${minPercent}%`, width: `${Math.max(1, maxPercent - minPercent)}%` }}
+                    />
+                    {/* Point Estimate Marker */}
+                    <div
+                      className="absolute h-full w-[2px] bg-white z-15 shadow-[0_0_8px_rgba(255,255,255,0.8)] transition-all duration-500 ease-out"
+                      style={{ left: `calc(${midPercent}% - 1px)` }}
                     />
                     {/* Text overlays inside */}
                     <div className="absolute inset-0 flex justify-between items-center px-1.5 font-mono text-[8px] z-20 pointer-events-none">
-                      <span className="text-white font-bold">After</span>
+                      <span className="text-white font-bold">After (Range)</span>
                       <span className="text-cyber-green font-bold">Before: 100%</span>
                     </div>
                   </div>
@@ -364,12 +401,34 @@ export default function ScenarioModeller({
               const priceSev = getSeverity("fuel_price", impact.fuel_price_delta);
               const priceColor = getSeverityColorClass(priceSev);
               const priceBarColor = getSeverityBarClass(priceSev);
+
+              const priceDelta = impact.fuel_price_delta;
+              const spread = priceDelta * 0.15;
+              const minPrice = priceDelta - spread;
+              const maxPrice = priceDelta + spread;
+
+              const midPercent = Math.min(100, (priceDelta / 25) * 100);
+              const minPercent = Math.min(100, (Math.max(0, minPrice) / 25) * 100);
+              const maxPercent = Math.min(100, (maxPrice / 25) * 100);
+
               return (
                 <div className="bg-[#0b0f19]/50 border border-cyber-border p-3.5 rounded flex flex-col justify-between h-[125px]">
-                  <span className="text-[9px] font-mono text-gray-500 uppercase font-bold">Fuel Price Shock</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[9px] font-mono text-gray-500 uppercase font-bold">Fuel Price Shock</span>
+                    <span className="text-[7.5px] font-mono text-cyber-orange border border-cyber-orange/30 bg-cyber-orange/5 px-1 py-0.5 rounded leading-none">MODELED RANGE</span>
+                  </div>
                   <div>
                     <div className={`text-lg font-bold font-mono tracking-tight ${priceColor}`}>
-                      +₹<AnimatedNumber value={impact.fuel_price_delta} duration={500} formatter={(n) => `${n.toFixed(2)}`} />
+                      {priceDelta === 0 ? (
+                        <span>+₹0.00</span>
+                      ) : (
+                        <>
+                          +₹
+                          <AnimatedNumber value={minPrice} duration={500} formatter={(n) => n.toFixed(2)} />
+                          –₹
+                          <AnimatedNumber value={maxPrice} duration={500} formatter={(n) => n.toFixed(2)} />
+                        </>
+                      )}
                       <span className="text-[10px] font-normal text-gray-400">/litre</span>
                     </div>
                     <div className="text-[9px] font-mono text-gray-500 mt-0.5">
@@ -378,15 +437,20 @@ export default function ScenarioModeller({
                   </div>
                   
                   {/* Animated Horizontal Tube */}
-                  <div className="relative h-4 w-full bg-slate-950 border border-slate-800 rounded overflow-hidden mt-2 select-none">
-                    {/* Current Fill */}
+                  <div className="relative h-4 w-full bg-slate-955 border border-slate-800 rounded overflow-hidden mt-2 select-none">
+                    {/* Shaded Band */}
                     <div
-                      className={`h-full bg-gradient-to-r ${priceBarColor} transition-all duration-500 ease-out`}
-                      style={{ width: `${Math.min(100, (impact.fuel_price_delta / 25) * 100)}%` }}
+                      className={`absolute h-full bg-gradient-to-r ${priceBarColor} opacity-40 transition-all duration-500 ease-out`}
+                      style={{ left: `${minPercent}%`, width: `${Math.max(1, maxPercent - minPercent)}%` }}
+                    />
+                    {/* Point Estimate Marker */}
+                    <div
+                      className="absolute h-full w-[2px] bg-white z-15 shadow-[0_0_8px_rgba(255,255,255,0.8)] transition-all duration-500 ease-out"
+                      style={{ left: `calc(${midPercent}% - 1px)` }}
                     />
                     {/* Text overlays inside */}
                     <div className="absolute inset-0 flex justify-between items-center px-1.5 font-mono text-[8px] z-20 pointer-events-none">
-                      <span className="text-white font-bold">{impact.fuel_price_delta > 0 ? "Shock" : "Stable"}</span>
+                      <span className="text-white font-bold">{priceDelta > 0 ? "Shock (Range)" : "Stable"}</span>
                       <span className="text-gray-400 font-bold">Max Scale: ₹25</span>
                     </div>
                   </div>
@@ -399,31 +463,57 @@ export default function ScenarioModeller({
               const sprSev = getSeverity("spr_cover", impact.days_of_cover);
               const sprColor = getSeverityColorClass(sprSev);
               const sprBarColor = getSeverityBarClass(sprSev);
+
+              const days = impact.days_of_cover;
+              const spread = days * 0.15;
+              const minDays = Math.max(0, days - spread);
+              const maxDays = Math.min(9.5, days + spread);
+
+              const midPercent = (days / 9.5) * 100;
+              const minPercent = (minDays / 9.5) * 100;
+              const maxPercent = (maxDays / 9.5) * 100;
+
               return (
                 <div className="bg-[#0b0f19]/50 border border-cyber-border p-3.5 rounded flex flex-col justify-between h-[125px]">
-                  <span className="text-[9px] font-mono text-gray-500 uppercase font-bold">SPR Buffer Cover</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[9px] font-mono text-gray-500 uppercase font-bold">SPR Buffer Cover</span>
+                    <span className="text-[7.5px] font-mono text-cyber-orange border border-cyber-orange/30 bg-cyber-orange/5 px-1 py-0.5 rounded leading-none">MODELED RANGE</span>
+                  </div>
                   <div>
                     <div className={`text-lg font-bold font-mono tracking-tight ${sprColor}`}>
-                      <AnimatedNumber value={impact.days_of_cover} duration={500} formatter={(n) => `${n.toFixed(1)}`} />
+                      {days === 9.5 ? (
+                        <span>9.5</span>
+                      ) : (
+                        <>
+                          <AnimatedNumber value={minDays} duration={500} formatter={(n) => n.toFixed(1)} />
+                          –
+                          <AnimatedNumber value={maxDays} duration={500} formatter={(n) => n.toFixed(1)} />
+                        </>
+                      )}
                       <span className="text-[10px] font-normal text-gray-400"> days left</span>
                     </div>
                     <div className={`text-[9px] font-mono mt-0.5 ${sprColor}`}>
-                      Drawdown: -<AnimatedNumber value={9.5 - impact.days_of_cover} duration={500} formatter={(n) => `${n.toFixed(1)}`} /> days
+                      Drawdown: -<AnimatedNumber value={9.5 - days} duration={500} formatter={(n) => `${n.toFixed(1)}`} /> days
                     </div>
                   </div>
                   
                   {/* Animated Horizontal Tube */}
-                  <div className="relative h-4 w-full bg-slate-950 border border-slate-800 rounded overflow-hidden mt-2 select-none">
+                  <div className="relative h-4 w-full bg-slate-955 border border-slate-800 rounded overflow-hidden mt-2 select-none">
                     {/* Ghost Outline (representing 9.5 days baseline) */}
                     <div className="absolute inset-0 border border-dashed border-cyber-green/40 rounded opacity-60 z-10 pointer-events-none" />
-                    {/* Current Fill */}
+                    {/* Shaded Band */}
                     <div
-                      className={`h-full bg-gradient-to-r ${sprBarColor} transition-all duration-500 ease-out`}
-                      style={{ width: `${(impact.days_of_cover / 9.5) * 100}%` }}
+                      className={`absolute h-full bg-gradient-to-r ${sprBarColor} opacity-40 transition-all duration-500 ease-out`}
+                      style={{ left: `${minPercent}%`, width: `${Math.max(1, maxPercent - minPercent)}%` }}
+                    />
+                    {/* Point Estimate Marker */}
+                    <div
+                      className="absolute h-full w-[2px] bg-white z-15 shadow-[0_0_8px_rgba(255,255,255,0.8)] transition-all duration-500 ease-out"
+                      style={{ left: `calc(${midPercent}% - 1px)` }}
                     />
                     {/* Text overlays inside */}
                     <div className="absolute inset-0 flex justify-between items-center px-1.5 font-mono text-[8px] z-20 pointer-events-none">
-                      <span className="text-white font-bold">After</span>
+                      <span className="text-white font-bold">After (Range)</span>
                       <span className="text-cyber-green font-bold">Before: 9.5d</span>
                     </div>
                   </div>
@@ -436,12 +526,35 @@ export default function ScenarioModeller({
               const gdpSev = getSeverity("gdp_drag", impact.gdp_drag);
               const gdpColor = getSeverityColorClass(gdpSev);
               const gdpBarColor = getSeverityBarClass(gdpSev);
+
+              const drag = impact.gdp_drag;
+              const spread = drag * 0.15;
+              const minDrag = drag - spread;
+              const maxDrag = drag + spread;
+
+              const midPercent = Math.min(100, (drag / 1.5) * 100);
+              const minPercent = Math.min(100, (Math.max(0, minDrag) / 1.5) * 100);
+              const maxPercent = Math.min(100, (maxDrag / 1.5) * 100);
+
               return (
                 <div className="bg-[#0b0f19]/50 border border-cyber-border p-3.5 rounded flex flex-col justify-between h-[125px]">
-                  <span className="text-[9px] font-mono text-gray-500 uppercase font-bold">Quarterly GDP Drag</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[9px] font-mono text-gray-500 uppercase font-bold">Quarterly GDP Drag</span>
+                    <span className="text-[7.5px] font-mono text-cyber-orange border border-cyber-orange/30 bg-cyber-orange/5 px-1 py-0.5 rounded leading-none">MODELED RANGE</span>
+                  </div>
                   <div>
                     <div className={`text-lg font-bold font-mono tracking-tight ${gdpColor}`}>
-                      -<AnimatedNumber value={impact.gdp_drag} duration={500} formatter={(n) => `${n.toFixed(2)}%`} />
+                      {drag === 0 ? (
+                        <span>0.00%</span>
+                      ) : (
+                        <>
+                          -
+                          <AnimatedNumber value={minDrag} duration={500} formatter={(n) => n.toFixed(2)} />
+                          % to -
+                          <AnimatedNumber value={maxDrag} duration={500} formatter={(n) => n.toFixed(2)} />
+                          %
+                        </>
+                      )}
                     </div>
                     <div className="text-[9px] font-mono text-gray-500 mt-0.5 flex items-center gap-1">
                       <Info className="w-3 h-3 text-cyber-blue" strokeWidth={2.5} />
@@ -450,15 +563,20 @@ export default function ScenarioModeller({
                   </div>
                   
                   {/* Animated Horizontal Tube */}
-                  <div className="relative h-4 w-full bg-slate-950 border border-slate-800 rounded overflow-hidden mt-2 select-none">
-                    {/* Current Fill */}
+                  <div className="relative h-4 w-full bg-slate-955 border border-slate-800 rounded overflow-hidden mt-2 select-none">
+                    {/* Shaded Band */}
                     <div
-                      className={`h-full bg-gradient-to-r ${gdpBarColor} transition-all duration-500 ease-out`}
-                      style={{ width: `${Math.min(100, (impact.gdp_drag / 1.5) * 100)}%` }}
+                      className={`absolute h-full bg-gradient-to-r ${gdpBarColor} opacity-40 transition-all duration-500 ease-out`}
+                      style={{ left: `${minPercent}%`, width: `${Math.max(1, maxPercent - minPercent)}%` }}
+                    />
+                    {/* Point Estimate Marker */}
+                    <div
+                      className="absolute h-full w-[2px] bg-white z-15 shadow-[0_0_8px_rgba(255,255,255,0.8)] transition-all duration-500 ease-out"
+                      style={{ left: `calc(${midPercent}% - 1px)` }}
                     />
                     {/* Text overlays inside */}
                     <div className="absolute inset-0 flex justify-between items-center px-1.5 font-mono text-[8px] z-20 pointer-events-none">
-                      <span className="text-white font-bold">{impact.gdp_drag > 0 ? "Drag" : "Normal"}</span>
+                      <span className="text-white font-bold">{drag > 0 ? "Drag (Range)" : "Normal"}</span>
                       <span className="text-gray-400 font-bold">Max Scale: 1.5%</span>
                     </div>
                   </div>

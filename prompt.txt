@@ -1,43 +1,52 @@
-BUG FIX: Ripple Effect node graph is rendering with wrong topology.
+TASK: Convert single-point modeled metrics in Module 2 (Disruption
+Scenario Modeller) to ranges. Do NOT touch the underlying calculation
+engine, scenario presets, or any other module — this is a display
+formatting change only, applied to the 4 existing metric cards
+(Refinery Run Rate, Fuel Price Shock, SPR Buffer Cover, Quarterly GDP
+Drag).
 
-Confirmed bugs from visual inspection:
-1. "SPR Buffer Drawdown" node has zero connected edges — the
-   corridor → spr edge is missing entirely from the render.
-2. "Strait of Hormuz" (corridor) origin node is not positioned at the
-   top as the single source — it's floating mid-graph with edges
-   looping into and out of it in a way that doesn't match a top-down
-   cascade.
-3. A corridor → gdp direct edge appears to be rendering, bypassing
-   refinery. Per the agreed data structure, GDP drag and fuel price
-   shock must ONLY be reachable through refinery — there is no direct
-   corridor → gdp or corridor → price_shock edge. If this edge exists
-   in the render, the edge list in code does not match the approved
-   spec — find and fix that mismatch.
-4. At least one arrow points in the wrong direction (arrowhead points
-   INTO a node that should be the source, not the target). Verify
-   every edge's arrowhead renders at the `to` node, never the `from`
-   node.
+WHAT TO CHANGE
+For each metric, instead of displaying one exact computed value,
+compute and display a range: [computed_value - spread, computed_value
++ spread], where spread is a fixed, clearly-defined percentage of the
+computed value (e.g. ±15%) — pick ONE consistent spread percentage
+and apply it uniformly across all 4 metrics, don't vary it per metric
+without a stated reason.
 
-REQUIRED FIX — enforce this exact layout:
-- corridor: top center, single origin, no incoming edges
-- refinery and spr: second row, both receive an edge FROM corridor
-  only (corridor → refinery, corridor → spr) — these are the only
-  two edges with hop=1
-- price_shock and gdp: third row, both receive an edge FROM refinery
-  only (refinery → price_shock, refinery → gdp) — these are the only
-  two edges with hop=2
-- spr has no outgoing edges (it's a terminal node)
-- Use a simple top-down tree layout (corridor at y:15, refinery+spr
-  at y:45, price_shock+gdp at y:75) with straight or gently-curved
-  lines that do NOT cross each other — re-derive x positions so edges
-  don't overlap visually (e.g. refinery left, spr right, then
-  price_shock/gdp positioned directly below their actual parent
-  (refinery), not spread evenly across the row).
+Example transformations:
+- "Refinery Run Rate: 79%" → "Refinery Run Rate: 73%–85%"
+- "Fuel Price Shock: +₹14.00/litre" → "+₹11.90–₹16.10/litre"
+- "SPR Buffer Cover: 5.8 days left" → "5.0–6.6 days left"
+- "Quarterly GDP Drag: -0.80%" → "-0.68% to -0.92%"
 
-Before re-rendering, print/log the actual edge array being passed to
-the SVG renderer and confirm it contains exactly these 4 edges and no
-others:
-  corridor→refinery, corridor→spr, refinery→price_shock, refinery→gdp
-If the logged array contains a 5th edge or a corridor→gdp/price_shock
-edge, the bug is in the data layer, not the rendering layer — fix
-the data first.
+DISPLAY TREATMENT
+- Show the range as the primary number (not a small subtext) — this
+  is a credibility upgrade, not a footnote.
+- Keep the existing before/after bar visual, but change it to show
+  a shaded BAND (min-to-max) instead of a single bar endpoint, with
+  the original point-estimate shown as a thin marker line inside
+  the band, so users can still see "most likely value" within the
+  range.
+- Add a small inline label near each metric: "MODELED RANGE" using
+  the same caption styling as existing "MODELED ILLUSTRATIVE DATA"
+  labels elsewhere in the app — keep the data-honesty convention
+  consistent.
+
+WHY (for context, not for UI)
+Single-point estimates overstate model confidence. Showing a range
+signals statistical honesty and is more defensible under judge
+questioning about precision.
+
+CONSTRAINTS
+- The original point-estimate value must still be computed exactly as
+  before — you are only changing how it's DISPLAYED, wrapping it in a
+  range for presentation. Do not change the underlying scenario math.
+- Apply this to all 5 scenario presets (including the Time Machine
+  mode if already built) for consistency — a range on 4 presets and a
+  single point on the 5th will look like an oversight.
+- Verify the assumptions panel below still references the original
+  point estimate in its text (e.g. "assumes X% drop") so the stated
+  assumptions don't contradict the displayed range.
+
+Show me the exact spread percentage you'll use and confirm it applies
+uniformly before implementing.
