@@ -144,7 +144,7 @@ export default function ExecutiveMemo({ memo, isLoading, onGenerate }: Executive
           </div>
         </div>
       ) : (
-        <div id="printable-memo-document" className="flex-1 overflow-y-auto max-h-[580px] border border-cyber-border/80 bg-white text-gray-900 p-8 sm:p-10 rounded shadow-2xl font-serif text-left print:p-0 print:border-none print:shadow-none print:max-h-none print:bg-white print:text-black">
+        <div id="printable-memo-document" className="flex-1 border border-cyber-border/80 bg-white text-gray-900 p-8 sm:p-10 rounded shadow-2xl font-serif text-left print:p-0 print:border-none print:shadow-none print:max-h-none print:bg-white print:text-black">
           <div ref={memoRef} className="flex flex-col gap-6 max-w-2xl mx-auto print:mx-0 print:max-w-none animate-fadeIn">
             
             {/* Dynamic Auto-Trigger conditions stamp */}

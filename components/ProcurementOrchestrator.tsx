@@ -74,7 +74,7 @@ export default function ProcurementOrchestrator({
       </div>
 
       {/* Scrollable Layout Container */}
-      <div className="flex-1 overflow-y-auto flex flex-col gap-4 mt-1 pr-1 max-h-[550px]">
+      <div className="flex-1 flex flex-col gap-4 mt-1 pr-1">
         
         {options.map((opt, idx) => {
           const isSelected = selectedRoute === idx;
@@ -135,9 +135,9 @@ export default function ProcurementOrchestrator({
                   <Tag className="w-3.5 h-3.5 text-cyber-blue" />
                   <div>
                     <span className="text-gray-500 block uppercase text-[8px]">Premium</span>
-                    <span className={`font-semibold ${opt.pricePremium <= 0 ? "text-cyber-green" : "text-white"}`}>
-                      {opt.pricePremium === 0
-                        ? "N/A"
+                    <span className={`font-semibold ${opt.pricePremium <= 0 || opt.name.toLowerCase().includes("spr") || opt.name.toLowerCase().includes("strategic") ? "text-cyber-green" : "text-white"}`}>
+                      {opt.name.toLowerCase().includes("spr") || opt.name.toLowerCase().includes("strategic") || opt.pricePremium === 0
+                        ? "₹0/bbl (domestic — no import premium)"
                         : opt.pricePremium < 0
                         ? `-$${Math.abs(opt.pricePremium).toFixed(2)}/bbl`
                         : `+$${opt.pricePremium.toFixed(2)}/bbl`}

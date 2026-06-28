@@ -191,7 +191,7 @@ export default function RiskIntelligence({
           {/* Signal feed terminal box - fills the rest of the sidebar container height */}
           <div 
             id="threat-signal-feed"
-            className="bg-cyber-bg/50 p-4 font-mono text-xs flex-1 overflow-y-auto flex flex-col gap-3 max-h-[550px]"
+            className="bg-cyber-bg/50 p-4 font-mono text-xs flex-1 flex flex-col gap-3"
           >
             {signals.map((sig) => {
               const isCorridorSelected = activeCorridor === sig.corridor;

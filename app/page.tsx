@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Shield, Sliders, Brain, FileText, Play, Cpu } from "lucide-react";
 import RiskIntelligence from "@/components/RiskIntelligence";
 import ScenarioModeller from "@/components/ScenarioModeller";
@@ -109,7 +109,6 @@ export default function Dashboard() {
   const [demoActive, setDemoActive] = useState<boolean>(false);
   const [demoPaused, setDemoPaused] = useState<boolean>(false);
   const [demoTime, setDemoTime] = useState<number>(0);
-  const [demoText, setDemoText] = useState<string>("");
   const [procurementVisibleCount, setProcurementVisibleCount] = useState<number | undefined>(undefined);
 
   // Core pipelines
@@ -276,13 +275,21 @@ export default function Dashboard() {
     }
   };
 
+  const demoActiveRef = useRef(demoActive);
+
+  useEffect(() => {
+    demoActiveRef.current = demoActive;
+  }, [demoActive]);
+
   // Initial Load
   useEffect(() => {
     fetchRiskIntelligence().then((riskData) => {
-      // Initialize with default baseline states
+      if (demoActiveRef.current) return;
       if (riskData) {
         runScenarioSimulation("baseline", 0, riskData.brentPrice).then((imp) => {
+          if (demoActiveRef.current) return;
           runProcurementOrchestration("baseline", 0, riskData.brentPrice).then((proc) => {
+            if (demoActiveRef.current) return;
             if (imp && proc) {
               compileDecisionMemo(
                 riskData.corridors,
@@ -303,45 +310,122 @@ export default function Dashboard() {
 
   // Central timer-based Demo Controller loop
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
-    if (demoActive && !demoPaused) {
-      interval = setInterval(() => {
-        setDemoTime((prev) => {
-          const next = prev + 1;
-          if (next >= 90) {
-            stopDemo();
-            return 90;
-          }
-          return next;
-        });
-      }, 1000);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
+    if (!demoActive || demoPaused) return;
+
+    const interval = setInterval(() => {
+      setDemoTime((prev) => prev + 1);
+    }, 1000);
+
+    return () => clearInterval(interval);
   }, [demoActive, demoPaused]);
 
-  // Demo sequence triggers based on demoTime seconds (0s - 90s)
+  // Handle Demo Auto-Stop
   useEffect(() => {
-    if (!demoActive) return;
+    if (demoActive && demoTime >= 90) {
+      stopDemo();
+    }
+  }, [demoTime, demoActive]);
+
+  // Unified Demo Narration and View State Resolver
+  const getDemoNarration = (time: number) => {
+    if (time >= 0 && time < 5) {
+      return {
+        step: 1,
+        view: 0,
+        label: "GEOPOLITICAL THREAT SCANNING",
+        text: "[GEOPOLITICAL AGENT] Loading corridor map & real-time telemetry streams...",
+      };
+    }
+    if (time >= 5 && time < 20) {
+      return {
+        step: 1,
+        view: 0,
+        label: "CORRIDOR EXCELLENCE WARNING",
+        text: "[GEOPOLITICAL AGENT] Alert! News threat telemetry crossed WARNING threshold (50%) in Red Sea.",
+      };
+    }
+    if (time >= 20 && time < 25) {
+      return {
+        step: 2,
+        view: 1,
+        label: "DISRUPTION SIMULATION SCENARIO",
+        text: "[SCENARIO AGENT] Transitioning to Scenario Modeller. Triggering Red Sea Suspension preset...",
+      };
+    }
+    if (time >= 25 && time < 45) {
+      return {
+        step: 2,
+        view: 1,
+        label: "CASCADING SHOCK ANALYSIS",
+        text: "[SCENARIO AGENT] Calculating cascading fuel prices, Strategic Reserve drawdown cover, and GDP growth drag...",
+      };
+    }
+    if (time >= 45 && time < 50) {
+      return {
+        step: 3,
+        view: 2,
+        label: "ADAPTIVE ROUTE RE-ALLOCATION",
+        text: "[PROCUREMENT AGENT] Transitioning to Sourcing. Ranking alternate maritime sourcing routes...",
+      };
+    }
+    if (time >= 50 && time < 65) {
+      return {
+        step: 3,
+        view: 2,
+        label: "MULTI-CRITERIA CRUDE RANKINGS",
+        text: "[PROCUREMENT AGENT] Alternative routes ranked by refinery compatibility, transit speed, and port congestion levels.",
+      };
+    }
+    if (time >= 65 && time < 72) {
+      return {
+        step: 4,
+        view: 3,
+        label: "POLICY BRIEF COMPILATION",
+        text: "[DECISION AGENT] Transitioning to Executive Brief. Autonomously compiling policy brief briefing memo...",
+      };
+    }
+    return {
+      step: 4,
+      view: 3,
+      label: "EXECUTIVE BRIEF SYNTHESIS COMPLETE",
+      text: "[DECISION AGENT] Executive brief compiled. Policy response formulated and ready for ministerial signature.",
+    };
+  };
+
+  const currentNarration = getDemoNarration(demoTime);
+
+  // Synced View Snapping Effect
+  useEffect(() => {
+    if (demoActive && !demoPaused) {
+      setActiveTab(currentNarration.view);
+    }
+  }, [demoTime, demoActive, demoPaused, currentNarration.view]);
+
+  // Demo debug console log verification logger
+  useEffect(() => {
+    if (demoActive) {
+      console.log(
+        `[Sentinel Demo Debug] Time: ${demoTime}s | Step Index: ${currentNarration.step} | Step Label: ${currentNarration.label} | Target View: ${currentNarration.view} | Paused: ${demoPaused}`
+      );
+    }
+  }, [demoTime, demoActive, demoPaused, currentNarration]);
+
+  // Demo side-effects executor (runs state mutations exactly as demoTime advances)
+  useEffect(() => {
+    if (!demoActive || demoPaused) return;
 
     if (demoTime === 0) {
-      // Step 1: Geopolitical Risk Assessment (0 - 20s)
-      setActiveTab(0);
-      setDemoText("[GEOPOLITICAL AGENT] Loading corridor map & real-time telemetry streams...");
-      
       // Reset states
       setCorridors(prev => {
         const reset = { ...prev };
-        if (reset["Red Sea"]) reset["Red Sea"] = { ...reset["Red Sea"], score: 15, status: "STABLE" };
+        if (reset["Red Sea"]) {
+          reset["Red Sea"] = { ...reset["Red Sea"], score: 15, status: "STABLE" };
+        }
         return reset;
       });
       setSignals(prev => prev.filter(s => s.id !== "demo-red-sea-warning"));
     } 
     else if (demoTime === 5) {
-      // Trigger Warning threshold cross in Red Sea corridor (WARNING 50%)
-      setDemoText("[GEOPOLITICAL AGENT] Alert! News threat telemetry crossed WARNING threshold (50%) in Red Sea.");
-      
       const demoSignal: GeopoliticalSignal = {
         id: "demo-red-sea-warning",
         corridor: "Red Sea",
@@ -365,7 +449,6 @@ export default function Dashboard() {
       }));
       setSignals(prev => [demoSignal, ...prev]);
 
-      // Scroll the signal feed to the top headline focus
       setTimeout(() => {
         const feed = document.getElementById("threat-signal-feed");
         if (feed) {
@@ -374,23 +457,11 @@ export default function Dashboard() {
       }, 100);
     } 
     else if (demoTime === 20) {
-      // Step 2: Cascading Scenario Simulation (20 - 45s)
-      setActiveTab(1);
-      setDemoText("[SCENARIO AGENT] Transitioning to Scenario Modeller. Triggering Red Sea Suspension preset...");
-      
       setActiveScenarioId("red_sea_full");
       setCustomCapacityLoss(80);
       triggerFullPipeline("red_sea_full", 80);
     }
-    else if (demoTime === 25) {
-      setDemoText("[SCENARIO AGENT] Calculating cascading fuel prices, Strategic Reserve drawdown cover, and GDP growth drag...");
-    }
     else if (demoTime === 45) {
-      // Step 3: Adaptive Sourcing evaluation (45 - 65s)
-      setActiveTab(2);
-      setDemoText("[PROCUREMENT AGENT] Transitioning to Sourcing. Ranking alternate maritime sourcing routes...");
-      
-      // Animate cards staggered fade-in
       setProcurementVisibleCount(0);
       let count = 0;
       const staggerInterval = setInterval(() => {
@@ -401,24 +472,13 @@ export default function Dashboard() {
         }
       }, 150);
     }
-    else if (demoTime === 50) {
-      setDemoText("[PROCUREMENT AGENT] Alternative routes ranked by refinery compatibility, transit speed, and port congestion levels.");
-    }
     else if (demoTime === 65) {
-      // Step 4: Executive memo generation (65 - 90s)
-      setActiveTab(3);
-      setDemoText("[DECISION AGENT] Transitioning to Executive Brief. Autonomously compiling policy brief brief...");
-      
-      // Simulate compiler load in Brief module
       setIsLoadingMemo(true);
       setTimeout(() => {
         setIsLoadingMemo(false);
       }, 1250);
     }
-    else if (demoTime === 72) {
-      setDemoText("[DECISION AGENT] Executive brief compiled. Policy response formulated and ready for ministerial signature.");
-    }
-  }, [demoTime, demoActive]);
+  }, [demoTime, demoActive, demoPaused]);
 
   // Demo Control methods
   const startDemo = () => {
@@ -529,10 +589,17 @@ export default function Dashboard() {
       {/* 2. Demo Narration Overlay HUD (Matches Command Center Aesthetic) */}
       {demoActive && (
         <div className="bg-[#0b0f19] border-b border-cyber-orange px-6 py-2.5 flex flex-col sm:flex-row items-center justify-between gap-4 font-mono text-xs font-bold text-white z-40 print:hidden select-none animate-pulse">
-          <div className="flex items-center gap-2">
-            <Cpu className="w-4 h-4 text-cyber-orange animate-spin-slow" />
-            <span className="text-cyber-orange uppercase">Guided Narrated Tour ({demoTime}s / 90s):</span>
-            <span className="text-gray-300 font-medium italic">{demoText}</span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <Cpu className={`w-4 h-4 text-cyber-orange ${demoPaused ? "" : "animate-spin-slow"}`} />
+            <span className="text-cyber-orange uppercase">
+              Guided Narrated Tour ({demoTime}s / 90s){demoPaused ? " [PAUSED]" : ""}:
+            </span>
+            <span className="text-cyber-blue font-bold px-1.5 py-0.5 rounded bg-cyber-blue/10 border border-cyber-blue/20">
+              {currentNarration.label}
+            </span>
+            <span className="text-gray-300 font-medium italic ml-1">
+              {demoPaused ? `[PAUSED ON STEP ${currentNarration.step}] ${currentNarration.text}` : currentNarration.text}
+            </span>
           </div>
           
           <div className="flex items-center gap-2">
