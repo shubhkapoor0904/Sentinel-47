@@ -1,83 +1,43 @@
-CORRECTED CASCADE DATA STRUCTURE — fixes applied: (1) severity now
-derived from same bands as existing metric cards, (2) fabricated
-distribution formula removed, (3) edges restructured for true cascade.
+BUG FIX: Ripple Effect node graph is rendering with wrong topology.
 
-interface CascadeNode {
-  id: string;
-  label: string;
-  value: string;
-  severity: "stable" | "warning" | "critical"; // MUST reuse the exact
-    // same threshold function already used by that metric's card in
-    // Module 2 — do not define new cutoffs here. If the card computes
-    // severity via a shared helper (e.g. getSeverity(metric, value)),
-    // import and call that same helper for the node. This is the
-    // single most important fix: node color must always match its
-    // source card's color, with zero exceptions.
-  hop: number; // wave index only — used for animation delay, not layout
-  x: number;
-  y: number;
-  tooltip: string;
-}
+Confirmed bugs from visual inspection:
+1. "SPR Buffer Drawdown" node has zero connected edges — the
+   corridor → spr edge is missing entirely from the render.
+2. "Strait of Hormuz" (corridor) origin node is not positioned at the
+   top as the single source — it's floating mid-graph with edges
+   looping into and out of it in a way that doesn't match a top-down
+   cascade.
+3. A corridor → gdp direct edge appears to be rendering, bypassing
+   refinery. Per the agreed data structure, GDP drag and fuel price
+   shock must ONLY be reachable through refinery — there is no direct
+   corridor → gdp or corridor → price_shock edge. If this edge exists
+   in the render, the edge list in code does not match the approved
+   spec — find and fix that mismatch.
+4. At least one arrow points in the wrong direction (arrowhead points
+   INTO a node that should be the source, not the target). Verify
+   every edge's arrowhead renders at the `to` node, never the `from`
+   node.
 
-interface CascadeEdge {
-  from: string;
-  to: string;
-  hop: number; // matches the 'to' node's hop, so the pulse arrives
-               // exactly when that node lights up
-}
+REQUIRED FIX — enforce this exact layout:
+- corridor: top center, single origin, no incoming edges
+- refinery and spr: second row, both receive an edge FROM corridor
+  only (corridor → refinery, corridor → spr) — these are the only
+  two edges with hop=1
+- price_shock and gdp: third row, both receive an edge FROM refinery
+  only (refinery → price_shock, refinery → gdp) — these are the only
+  two edges with hop=2
+- spr has no outgoing edges (it's a terminal node)
+- Use a simple top-down tree layout (corridor at y:15, refinery+spr
+  at y:45, price_shock+gdp at y:75) with straight or gently-curved
+  lines that do NOT cross each other — re-derive x positions so edges
+  don't overlap visually (e.g. refinery left, spr right, then
+  price_shock/gdp positioned directly below their actual parent
+  (refinery), not spread evenly across the row).
 
-NODES (Hormuz 50% Closure example) — 5 nodes, all backed by real
-computed values, no invented multipliers:
-
-1. corridor (Hop 0) — "Strait of Hormuz" — "50% Loss" — severity:
-   critical (origin, always critical when scenario active) — x:50 y:15
-
-2. refinery (Hop 1) — "Jamnagar Refinery" — "{100 - drop}% Run Rate"
-   — severity: reuse getSeverity('refinery_run_rate', value) from the
-   existing metric card — x:30 y:45
-
-3. spr (Hop 1) — "SPR Buffer Drawdown" — "{days_of_cover} Days"
-   — severity: reuse getSeverity('spr_cover', value) from existing
-   card (lower days = worse, same inverted logic the card already
-   uses — don't redefine it here) — x:70 y:45
-
-4. price_shock (Hop 2) — "Fuel Price Shock" — "+₹{fuel_price_delta}/L"
-   — severity: reuse getSeverity('fuel_price', value) from existing
-   card — x:20 y:75
-
-5. gdp (Hop 2) — "Quarterly GDP Drag" — "-{gdp_drag}%"
-   — severity: reuse getSeverity('gdp_drag', value) from existing
-   card — x:55 y:75
-
-   [REMOVED: "Domestic Distribution" node — its formula was invented,
-   not derived from a real calculation. Cut it rather than ship an
-   unbacked number. Revisit only if/when a real distribution-flow
-   metric exists in the engine.]
-
-EDGES — restructured to reflect actual causal cascade, not a flat
-3-way split from the origin:
-
-  corridor → refinery        (hop 1)
-  corridor → spr             (hop 1)
-  refinery → price_shock     (hop 2)
-  refinery → gdp             (hop 2)
-
-  Rationale: refinery run-rate drop is the real transmission
-  mechanism into both consumer price shock and GDP drag — they are
-  downstream of the refinery hit, not independent siblings of the
-  corridor event. SPR drawdown remains a direct, parallel consequence
-  of the corridor event itself (reserves are drawn down in response
-  to the corridor disruption, not the refinery's output).
-
-ANIMATION
-Keep the existing hop-based stagger (delay: hop * 150ms), now
-correctly timed since edges flow corridor(0)→refinery/spr(1)→
-price_shock/gdp(2) — the pulse will visibly travel two real hops
-deep instead of fanning out flat.
-
-VALIDATION BEFORE RENDERING
-For each of the 4 scenario presets (Hormuz, OPEC+, Red Sea, Custom),
-confirm every node's severity color exactly matches its corresponding
-metric card's current color. If even one mismatches, the shared
-getSeverity helper isn't being reused correctly — fix that before
-touching SVG code.
+Before re-rendering, print/log the actual edge array being passed to
+the SVG renderer and confirm it contains exactly these 4 edges and no
+others:
+  corridor→refinery, corridor→spr, refinery→price_shock, refinery→gdp
+If the logged array contains a 5th edge or a corridor→gdp/price_shock
+edge, the bug is in the data layer, not the rendering layer — fix
+the data first.

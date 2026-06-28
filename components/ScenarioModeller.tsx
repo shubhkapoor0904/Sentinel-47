@@ -102,7 +102,7 @@ export default function ScenarioModeller({
     }
   };
 
-  // Node coordinates scale to 600x180 box
+  // Node coordinates scale to 600x200 box to allow padding and prevent clipping
   const nodes = [
     {
       id: "corridor",
@@ -111,7 +111,7 @@ export default function ScenarioModeller({
       severity: getSeverity("corridor", corridorLoss),
       hop: 0,
       x: 300, // 50%
-      y: 27,  // 15%
+      y: 30,  // Top row (leaves 8px padding above 44px card)
       tooltip: `${corridorName} capacity loss modeled at ${corridorLoss}% under the active scenario.`
     },
     {
@@ -121,7 +121,7 @@ export default function ScenarioModeller({
       severity: getSeverity("refinery_run_rate", 100 - impact.refinery_run_rate_drop),
       hop: 1,
       x: 180, // 30%
-      y: 81,  // 45%
+      y: 100, // Middle row (perfectly centered)
       tooltip: `Operational throughput at Jamnagar drops by -${impact.refinery_run_rate_drop.toFixed(1)}% due to raw input delays.`
     },
     {
@@ -131,7 +131,7 @@ export default function ScenarioModeller({
       severity: getSeverity("spr_cover", impact.days_of_cover),
       hop: 1,
       x: 420, // 70%
-      y: 81,  // 45%
+      y: 100, // Middle row (perfectly centered)
       tooltip: `Strategic Reserves Net Cover shrinks to ${impact.days_of_cover.toFixed(1)} days to maintain refinery operations.`
     },
     {
@@ -140,8 +140,8 @@ export default function ScenarioModeller({
       value: `+₹${impact.fuel_price_delta.toFixed(1)}/L`,
       severity: getSeverity("fuel_price", impact.fuel_price_delta),
       hop: 2,
-      x: 120, // 20%
-      y: 135, // 75%
+      x: 110, // 18.3% (shifted left to clear GDP card)
+      y: 170, // Bottom row (leaves 8px padding below 44px card)
       tooltip: `Pump retail fuel price increases by +Rs ${impact.fuel_price_delta.toFixed(2)}/litre passed to end consumers.`
     },
     {
@@ -150,8 +150,8 @@ export default function ScenarioModeller({
       value: `-${impact.gdp_drag.toFixed(2)}%`,
       severity: getSeverity("gdp_drag", impact.gdp_drag),
       hop: 2,
-      x: 330, // 55%
-      y: 135, // 75%
+      x: 250, // 41.6% (positioned under refinery tree branch)
+      y: 170, // Bottom row (leaves 8px padding below 44px card)
       tooltip: `Macroeconomic friction induces an estimated -${impact.gdp_drag.toFixed(2)}% drag on India's quarterly GDP growth.`
     }
   ];
@@ -186,12 +186,16 @@ export default function ScenarioModeller({
     }
   };
 
+  // Edges terminate 22px before child coordinates to land exactly on the card border
   const edges = [
-    { from: "corridor", to: "refinery", x1: 300, y1: 27, x2: 180, y2: 81, targetNodeId: "refinery" },
-    { from: "corridor", to: "spr", x1: 300, y1: 27, x2: 420, y2: 81, targetNodeId: "spr" },
-    { from: "refinery", to: "price_shock", x1: 180, y1: 81, x2: 120, y2: 135, targetNodeId: "price_shock" },
-    { from: "refinery", to: "gdp", x1: 180, y1: 81, x2: 330, y2: 135, targetNodeId: "gdp" },
+    { from: "corridor", to: "refinery", x1: 300, y1: 52, x2: 180, y2: 78, targetNodeId: "refinery" },
+    { from: "corridor", to: "spr", x1: 300, y1: 52, x2: 420, y2: 78, targetNodeId: "spr" },
+    { from: "refinery", to: "price_shock", x1: 180, y1: 122, x2: 110, y2: 148, targetNodeId: "price_shock" },
+    { from: "refinery", to: "gdp", x1: 180, y1: 122, x2: 250, y2: 148, targetNodeId: "gdp" },
   ];
+
+  // Log edge cascade array before rendering for verification
+  console.log("Sentinel-47 Cascade Edges:", edges.map(e => `${e.from}→${e.to}`));
 
   const presets = [
     {
@@ -460,15 +464,23 @@ export default function ScenarioModeller({
             </span>
 
             {/* SVG Visualizer Container */}
-            <div className="relative w-full h-[180px] bg-[#070b13]/55 border border-cyber-border/40 rounded overflow-hidden">
+            <div className="relative w-full h-[200px] bg-[#070b13]/55 border border-cyber-border/40 rounded overflow-hidden">
               
-              {/* Responsive SVG Bezier connections */}
-              <svg viewBox="0 0 600 180" className="absolute inset-0 w-full h-full z-0 select-none pointer-events-none">
+              {/* Responsive SVG Bezier connections & Node Cards */}
+              <svg viewBox="0 0 600 200" className="absolute inset-0 w-full h-full z-0 select-none">
                 <defs>
-                  <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                    <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#1e293b" />
+                  <marker id="arrow-stable" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                    <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="rgba(34,197,94,0.7)" />
+                  </marker>
+                  <marker id="arrow-warning" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                    <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="rgba(249,115,22,0.7)" />
+                  </marker>
+                  <marker id="arrow-critical" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                    <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="rgba(239,68,68,0.7)" />
                   </marker>
                 </defs>
+                
+                {/* Connection lines */}
                 {edges.map((edge, idx) => {
                   const targetNode = nodes.find(n => n.id === edge.targetNodeId);
                   const sev = targetNode?.severity || "stable";
@@ -477,49 +489,58 @@ export default function ScenarioModeller({
                   return (
                     <path
                       key={idx}
-                      d={`M ${edge.x1} ${edge.y1} C ${(edge.x1 + edge.x2) / 2} ${edge.y1}, ${(edge.x1 + edge.x2) / 2} ${edge.y2}, ${edge.x2} ${edge.y2}`}
+                      d={`M ${edge.x1} ${edge.y1} C ${edge.x1} ${(edge.y1 + edge.y2) / 2}, ${edge.x2} ${(edge.y1 + edge.y2) / 2}, ${edge.x2} ${edge.y2}`}
                       fill="none"
                       stroke={strokeColor}
                       strokeWidth="1.5"
-                      markerEnd="url(#arrow)"
+                      markerEnd={`url(#arrow-${sev})`}
+                      className="pointer-events-none"
                     />
                   );
                 })}
+
+                {/* Embedded HTML Node Cards in SVG Coordinate Space */}
+                {nodes.map((node) => {
+                  const sevStyles = getSeverityStyles(node.severity);
+                  const width = 136;
+                  const height = 44;
+                  return (
+                    <foreignObject
+                      key={node.id}
+                      x={node.x - width / 2}
+                      y={node.y - height / 2}
+                      width={width}
+                      height={height}
+                      className="overflow-visible"
+                    >
+                      <div
+                        className={`p-2 rounded border font-mono text-center cursor-help transition-all duration-300 ${sevStyles.border} ${sevStyles.bg} ${sevStyles.glow} animate-stagger-node group relative`}
+                        style={{
+                          width: `${width}px`,
+                          height: `${height}px`,
+                          "--hop-delay": `${node.hop * 150}ms`,
+                          "--pulse-color": sevStyles.pulseColor,
+                        } as React.CSSProperties}
+                      >
+                        <span className="text-[7.5px] uppercase tracking-wide text-gray-500 block leading-none font-bold">
+                          {node.label}
+                        </span>
+                        <span className={`text-[10px] font-bold block mt-1 leading-none ${sevStyles.text}`}>
+                          {node.value}
+                        </span>
+
+                        {/* Hover Tooltip (overflows parent cleanly) */}
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-[220px] bg-slate-955 border border-cyber-border rounded p-2.5 text-[9px] text-gray-400 leading-normal pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-30 shadow-2xl text-center">
+                          {node.tooltip}
+                        </div>
+                      </div>
+                    </foreignObject>
+                  );
+                })}
               </svg>
-
-              {/* Absolute HTML nodes layer */}
-              {nodes.map((node) => {
-                const sevStyles = getSeverityStyles(node.severity);
-                return (
-                  <div
-                    key={node.id}
-                    className={`absolute p-2.5 rounded border font-mono text-center cursor-help transition-all duration-300 z-10 ${sevStyles.border} ${sevStyles.bg} ${sevStyles.glow} animate-stagger-node group`}
-                    style={{
-                      left: `${(node.x / 600) * 100}%`,
-                      top: `${(node.y / 180) * 100}%`,
-                      "--hop-delay": `${node.hop * 150}ms`,
-                      "--pulse-color": sevStyles.pulseColor,
-                    } as React.CSSProperties}
-                  >
-                    <span className="text-[7.5px] uppercase tracking-wide text-gray-500 block leading-none font-bold">
-                      {node.label}
-                    </span>
-                    <span className={`text-[10px] font-bold block mt-1 leading-none ${sevStyles.text}`}>
-                      {node.value}
-                    </span>
-
-                    {/* Tooltip */}
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-[220px] bg-slate-955 border border-cyber-border rounded p-2.5 text-[9px] text-gray-400 leading-normal pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-30 shadow-2xl text-center">
-                      {node.tooltip}
-                    </div>
-                  </div>
-                );
-              })}
-
             </div>
           </div>
         </div>
-
       </div>
 
       {/* Stated Assumptions Panel - First-Class UI Element (spanning full-width bottom) */}
