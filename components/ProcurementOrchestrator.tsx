@@ -74,7 +74,7 @@ export default function ProcurementOrchestrator({
       </div>
 
       {/* Scrollable Layout Container */}
-      <div className="flex-1 flex flex-col gap-4 mt-1 pr-1">
+      <div className="flex-1 overflow-y-auto flex flex-col gap-4 mt-1 pr-1">
         
         {options.map((opt, idx) => {
           const isSelected = selectedRoute === idx;

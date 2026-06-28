@@ -726,6 +726,7 @@ export default function Dashboard() {
             <ExecutiveMemo
               memo={memo}
               isLoading={isLoadingMemo}
+              gdpDrag={impact.gdp_drag}
               onGenerate={() =>
                 triggerFullPipeline(activeScenarioId, customCapacityLoss)
               }

@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
-import { AlertTriangle, RefreshCw, Shield, TrendingUp } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { AlertTriangle, RefreshCw, Shield, TrendingUp, Ship, Info } from "lucide-react";
 import RiskMap from "./RiskMap";
 import AnimatedNumber from "./AnimatedNumber";
 
@@ -46,6 +46,40 @@ export default function RiskIntelligence({
   onRefresh,
 }: RiskIntelligenceProps) {
   const [activeCorridor, setActiveCorridor] = useState<string | null>(null);
+
+  // Auto-scroll to matching headline in Live Threat Feed when activeCorridor changes
+  useEffect(() => {
+    if (activeCorridor) {
+      const matchedSig = signals.find((sig) => sig.corridor === activeCorridor);
+      if (matchedSig) {
+        const element = document.getElementById(`feed-sig-${matchedSig.id}`);
+        const feedContainer = document.getElementById("threat-signal-feed");
+        if (element && feedContainer) {
+          const elementOffsetTop = element.offsetTop;
+          const containerOffsetTop = feedContainer.offsetTop;
+          feedContainer.scrollTo({
+            top: elementOffsetTop - containerOffsetTop - 12,
+            behavior: "smooth",
+          });
+        }
+      }
+    }
+  }, [activeCorridor, signals]);
+
+  // Resolve active dark fleet vessels
+  const darkFleetVessels = activeCorridor
+    ? darkFleetDatabase[activeCorridor as "Hormuz" | "Red Sea" | "Suez"] || []
+    : Object.values(darkFleetDatabase).flat();
+
+  // Determine if active corridor (or any corridor) is in Warning/Critical state
+  const isHighRisk = activeCorridor
+    ? (corridors[activeCorridor as "Hormuz" | "Red Sea" | "Suez"]?.status === "WARNING" ||
+       corridors[activeCorridor as "Hormuz" | "Red Sea" | "Suez"]?.status === "CRITICAL")
+    : Object.values(corridors).some((c) => c?.status === "WARNING" || c?.status === "CRITICAL");
+
+  const borderHighlightClass = isHighRisk
+    ? "border-cyber-orange/60 shadow-[0_0_15px_rgba(249,115,22,0.08)] bg-cyber-orange/[0.01]"
+    : "border-cyber-border bg-[#0b0f19]/25";
 
   const getStatusColor = (status?: string) => {
     switch (status) {
@@ -176,78 +210,191 @@ export default function RiskIntelligence({
           </div>
         </div>
 
-        {/* Right Side: scrolling signal feed (col-span-1) */}
-        <div className="lg:col-span-1 flex flex-col border border-cyber-border rounded overflow-hidden min-h-[300px] h-full bg-[#0b0f19]/25">
-          <div className="bg-[#0b0f19] px-3 py-2 border-b border-cyber-border flex items-center justify-between shrink-0">
-            <span className="text-[9px] font-mono text-gray-400 flex items-center gap-1.5 uppercase font-bold">
-              <span className="w-1.5 h-1.5 rounded-full bg-cyber-red animate-pulse" />
-              Live Threat Signal Extraction
-            </span>
-            <span className="text-[9px] font-mono text-gray-500">
-              POLLING: ACTIVE (60S)
-            </span>
+        {/* Right Side: scrolling signal feeds (col-span-1) */}
+        <div className="lg:col-span-1 flex flex-col gap-4 h-full min-h-[500px]">
+          
+          {/* Card 1: Live News Feed */}
+          <div className="flex-1 flex flex-col border border-cyber-border rounded overflow-hidden bg-[#0b0f19]/25 min-h-[220px]">
+            <div className="bg-[#0b0f19] px-3 py-2 border-b border-cyber-border flex items-center justify-between shrink-0">
+              <span className="text-[9px] font-mono text-gray-400 flex items-center gap-1.5 uppercase font-bold">
+                <span className="w-1.5 h-1.5 rounded-full bg-cyber-red animate-pulse" />
+                Live Threat Signal Extraction
+              </span>
+              <span className="text-[9px] font-mono text-gray-500">
+                POLLING: ACTIVE (60S)
+              </span>
+            </div>
+
+            {/* Signal feed terminal box - fills the rest of the sidebar container height */}
+            <div 
+              id="threat-signal-feed"
+              className="bg-cyber-bg/50 p-4 font-mono text-xs flex-1 overflow-y-auto flex flex-col gap-3"
+            >
+              {signals.map((sig) => {
+                const isCorridorSelected = activeCorridor === sig.corridor;
+                return (
+                  <div
+                    key={sig.id}
+                    id={`feed-sig-${sig.id}`}
+                    className={`border-l-2 pl-3 py-2 transition-all duration-300 text-left ${
+                      isCorridorSelected
+                        ? "border-cyber-blue bg-cyber-blue/10 shadow-[inset_0_0_10px_rgba(6,182,212,0.05)]"
+                        : sig.corridor === "Hormuz"
+                        ? "border-cyber-red bg-cyber-red/5"
+                        : sig.corridor === "Red Sea"
+                        ? "border-cyber-orange bg-cyber-orange/5"
+                        : sig.corridor === "Suez"
+                        ? "border-cyber-amber bg-cyber-amber/5"
+                        : "border-gray-600"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="text-[9px] text-gray-400 font-bold">
+                        [{sig.source.toUpperCase()}] {new Date(sig.timestamp).toLocaleTimeString()}
+                      </span>
+                      <span
+                        className={`text-[9px] px-1.5 py-0.5 rounded flex items-center gap-0.5 font-bold ${
+                          sig.severity_0to10 >= 6.5
+                            ? "bg-cyber-red/20 text-cyber-red border border-cyber-red/30"
+                            : sig.severity_0to10 >= 4.0
+                            ? "bg-cyber-amber/20 text-cyber-amber border border-cyber-amber/30"
+                            : "bg-cyber-green/20 text-cyber-green border border-cyber-green/30"
+                        }`}
+                      >
+                        <AlertTriangle className="w-2.5 h-2.5 animate-pulse" /> SEV: {sig.severity_0to10}/10
+                      </span>
+                    </div>
+                    <h4 className="text-[11px] text-white font-semibold mt-1 leading-snug">
+                      {sig.headline}
+                    </h4>
+                    <p className="text-[10px] text-gray-400 mt-1 leading-relaxed italic">
+                      Agent Assessment: {sig.reasoning}
+                    </p>
+                    <div className="mt-1.5 flex items-center gap-3">
+                      <span className="text-[9px] text-cyber-blue uppercase font-bold">
+                        Corridor: {sig.corridor}
+                      </span>
+                      <span className="text-[9px] text-gray-500 font-mono">
+                        Conf: {Math.round(sig.confidence * 100)}%
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
-          {/* Signal feed terminal box - fills the rest of the sidebar container height */}
-          <div 
-            id="threat-signal-feed"
-            className="bg-cyber-bg/50 p-4 font-mono text-xs flex-1 flex flex-col gap-3"
-          >
-            {signals.map((sig) => {
-              const isCorridorSelected = activeCorridor === sig.corridor;
-              return (
-                <div
-                  key={sig.id}
-                  id={`feed-sig-${sig.id}`}
-                  className={`border-l-2 pl-3 py-2 transition-all duration-300 text-left ${
-                    isCorridorSelected
-                      ? "border-cyber-blue bg-cyber-blue/10 shadow-[inset_0_0_10px_rgba(6,182,212,0.05)]"
-                      : sig.corridor === "Hormuz"
-                      ? "border-cyber-red bg-cyber-red/5"
-                      : sig.corridor === "Red Sea"
-                      ? "border-cyber-orange bg-cyber-orange/5"
-                      : sig.corridor === "Suez"
-                      ? "border-cyber-amber bg-cyber-amber/5"
-                      : "border-gray-600"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="text-[9px] text-gray-400 font-bold">
-                      [{sig.source.toUpperCase()}] {new Date(sig.timestamp).toLocaleTimeString()}
-                    </span>
-                    <span
-                      className={`text-[9px] px-1.5 py-0.5 rounded flex items-center gap-0.5 font-bold ${
-                        sig.severity_0to10 >= 6.5
-                          ? "bg-cyber-red/20 text-cyber-red border border-cyber-red/30"
-                          : sig.severity_0to10 >= 4.0
-                          ? "bg-cyber-amber/20 text-cyber-amber border border-cyber-amber/30"
-                          : "bg-cyber-green/20 text-cyber-green border border-cyber-green/30"
-                      }`}
-                    >
-                      <AlertTriangle className="w-2.5 h-2.5 animate-pulse" /> SEV: {sig.severity_0to10}/10
-                    </span>
-                  </div>
-                  <h4 className="text-[11px] text-white font-semibold mt-1 leading-snug">
-                    {sig.headline}
-                  </h4>
-                  <p className="text-[10px] text-gray-400 mt-1 leading-relaxed italic">
-                    Agent Assessment: {sig.reasoning}
-                  </p>
-                  <div className="mt-1.5 flex items-center gap-3">
-                    <span className="text-[9px] text-cyber-blue uppercase font-bold">
-                      Corridor: {sig.corridor}
-                    </span>
-                    <span className="text-[9px] text-gray-500 font-mono">
-                      Conf: {Math.round(sig.confidence * 100)}%
-                    </span>
-                  </div>
+          {/* Card 2: Dark Fleet Feed */}
+          <div className={`flex-1 flex flex-col border rounded overflow-hidden min-h-[220px] transition-all duration-300 ${borderHighlightClass}`}>
+            <div className="bg-[#0b0f19] px-3 py-2 border-b border-cyber-border flex items-center justify-between shrink-0">
+              <span className="text-[9px] font-mono text-gray-400 flex items-center gap-1.5 uppercase font-bold">
+                <span className="w-1.5 h-1.5 rounded-full bg-cyber-orange animate-pulse" />
+                Dark Fleet Signal — Modeled/Illustrative Data
+              </span>
+              <div className="group relative">
+                <Info className="w-3.5 h-3.5 text-gray-500 cursor-pointer hover:text-cyber-orange transition-all" />
+                <div className="absolute right-0 top-6 w-[280px] bg-slate-955 border border-cyber-border rounded p-3 text-[10px] text-gray-400 font-mono leading-relaxed hidden group-hover:block group-focus:block z-30 shadow-2xl">
+                  Dark fleet detection identifies vessels disabling AIS transponders to evade tracking near high-risk corridors — often preceding reported incidents.
                 </div>
-              );
-            })}
+              </div>
+            </div>
+
+            {/* Dark fleet list container */}
+            <div 
+              id="dark-fleet-vessels-feed"
+              className="bg-cyber-bg/50 p-4 font-mono text-xs flex-1 overflow-y-auto flex flex-col gap-3.5"
+            >
+              {darkFleetVessels.length > 0 ? (
+                darkFleetVessels.map((vessel) => (
+                  <div
+                    key={vessel.id}
+                    className="border-b border-cyber-border/40 pb-2.5 last:border-b-0 last:pb-0 text-left"
+                  >
+                    <div className="flex justify-between items-start gap-2">
+                      <span className="text-[10px] text-white font-bold flex items-center gap-1">
+                        <Ship className="w-3.5 h-3.5 text-cyber-orange" /> {vessel.id}
+                      </span>
+                      <span className="text-[8px] px-1.5 py-0.5 rounded bg-cyber-orange/10 border border-cyber-orange/20 text-cyber-orange font-bold uppercase tracking-wider">
+                        AIS LOST
+                      </span>
+                    </div>
+                    <div className="text-[9px] text-gray-400 font-sans mt-0.5">
+                      <span className="text-gray-500 font-mono">Type:</span> {vessel.type}
+                    </div>
+                    <div className="text-[9px] text-gray-400 font-sans mt-0.5">
+                      <span className="text-gray-500 font-mono">Last Known:</span> {vessel.lastKnown}
+                    </div>
+                    <div className="text-[9px] text-cyber-red font-mono mt-0.5">
+                      <span className="text-gray-500">Loss Time:</span> {vessel.lostTime}
+                    </div>
+                    <p className="text-[9px] text-gray-400 mt-1 italic border-l border-cyber-orange/40 pl-2 leading-relaxed">
+                      Assessment: {vessel.assessment}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <div className="text-[10px] text-gray-500 italic text-center py-8">
+                  No silent vessels flagged in this corridor.
+                </div>
+              )}
+            </div>
           </div>
+
         </div>
 
       </div>
     </div>
   );
 }
+
+// Mock database for pre-disruption Dark Fleet vessel AIS tracking
+const darkFleetDatabase = {
+  Hormuz: [
+    {
+      id: "TANKER-VLCC-HRZ-089",
+      type: "Crude Oil Tanker (VLCC) — Hormuz-bound",
+      lastKnown: "26.34° N, 56.25° E (Strait of Hormuz)",
+      lostTime: "Lost 2h 14m ago",
+      assessment: "Pattern consistent with pre-disruption positioning — went dark shortly after entering the Strait."
+    },
+    {
+      id: "TANKER-SUEZ-GOM-104",
+      type: "Suezmax Crude Tanker — Gulf of Oman transit",
+      lastKnown: "25.80° N, 57.10° E (Gulf of Oman)",
+      lostTime: "Lost 4h 05m ago",
+      assessment: "AIS spoofing detected; vessel transmitting conflicting location telemetry while running silent."
+    }
+  ],
+  "Red Sea": [
+    {
+      id: "TANKER-AFRA-RDS-214",
+      type: "Aframax Crude Carrier — Bab-el-Mandeb transit",
+      lastKnown: "12.80° N, 43.15° E (Bab-el-Mandeb)",
+      lostTime: "Lost 1h 45m ago",
+      assessment: "Sudden transponder deactivation. Follows pattern of pre-disruption corridor positioning."
+    },
+    {
+      id: "TANKER-VLCC-SRD-702",
+      type: "Crude Oil Tanker (VLCC) — Saudi-bound",
+      lastKnown: "14.50° N, 42.80° E (Southern Red Sea)",
+      lostTime: "Lost 6h 12m ago",
+      assessment: "Vessel disabled AIS transponder in high-threat corridor segment."
+    }
+  ],
+  Suez: [
+    {
+      id: "TANKER-LPG-SUEZ-098",
+      type: "LPG Carrier — Suez Canal convoy",
+      lastKnown: "29.96° N, 32.55° E (Suez Canal Entrance)",
+      lostTime: "Lost 3h 30m ago",
+      assessment: "Signal lost at southern entrance. Anomalous route deviation registered prior to signal cutoff."
+    },
+    {
+      id: "TANKER-VLCC-MED-044",
+      type: "Crude Oil Tanker (VLCC) — Mediterranean transit",
+      lastKnown: "31.25° N, 32.30° E (Port Said)",
+      lostTime: "Lost 8h 05m ago",
+      assessment: "AIS transmission cut off while queueing for southbound convoy transit."
+    }
+  ]
+};

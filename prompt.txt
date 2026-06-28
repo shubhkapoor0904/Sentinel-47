@@ -1,24 +1,33 @@
-BUG FIX: Guided demo tour caption/timer desync.
+TASK: Add a "Dark Fleet Signal" indicator to Module 1 (Geopolitical
+Risk Intelligence Agent). Do NOT touch existing news ingestion, price
+feed, corridor scoring, or map logic — this is an additive panel only.
 
-Current bug: the narration caption and step label stay frozen on
-whatever step they were last (e.g. "[PROCUREMENT AGENT]") even after
-navigating to a different module, and the timer (52s/90s) does not
-reliably advance in sync with the active view.
+CONCEPT
+Tankers near sanctioned/high-risk corridors often go AIS-dark or spoof
+their transponder BEFORE a disruption event hits the news — making
+this a leading indicator, distinct from your existing news-based
+signals (which are inherently reactive).
 
-Required fix:
-1. The caption, step label, and timer must always derive from a single
-   shared "current demo step" state — never let the caption text be
-   independently stale from the view that's showing.
-2. If the user manually navigates away during an active guided tour,
-   either (a) pause the timer and caption together, clearly showing
-   "PAUSED" in the banner, or (b) jump the caption/timer to match
-   wherever the user navigated. Pick (a) — pausing both together is
-   safer and avoids any mismatch.
-3. "RESUME" must continue the timer and caption from the correct
-   paused step, not restart or skip.
-4. Add a simple console log or visible debug state (current step index,
-   timer value) so this is easy to verify before demo day.
+WHAT TO BUILD
+1. Small new card in Module 1, near the live threat signal feed —
+   label clearly: "DARK FLEET SIGNAL — MODELED/ILLUSTRATIVE DATA"
+   (must follow existing LIVE vs MODELED labeling convention exactly).
+2. Show 2-4 mock vessel entries per active corridor, format:
+   - Vessel ID/type (e.g. "Tanker — VLCC, Hormuz-bound")
+   - Last known position + time AIS signal was lost
+   - A short agent-style assessment line, e.g.: "Pattern consistent
+     with pre-disruption positioning — 3 tankers went dark in transit
+     corridor over past 6 hours."
+3. Tie it to corridor risk visually: if a corridor's existing risk %
+   is WARNING/CRITICAL, surface this card with slightly more emphasis
+   (subtle border highlight) — but do NOT let it silently influence
+   the actual corridor risk score calculation. This stays a separate,
+   clearly-labeled signal type, not a hidden input to existing logic.
+4. Add a one-line explainer on hover/click: "Dark fleet detection
+   identifies vessels disabling AIS transponders to evade tracking
+   near high-risk corridors — often preceding reported incidents."
 
-Test explicitly: start tour, manually click to a different module
-mid-tour, confirm caption+timer pause together, click RESUME, confirm
-they resume in sync.
+CONSTRAINT
+This must be visually distinct from the real news feed so a judge
+never mistakes mocked vessel data for live AIS data. Keep it compact
+— this is a supporting signal, not a new full module.
