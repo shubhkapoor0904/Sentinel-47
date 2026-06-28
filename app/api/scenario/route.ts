@@ -37,6 +37,10 @@ export async function POST(request: Request) {
       capacityLoss = 80;
       scenarioName = "Red Sea Full Transit Suspension";
       break;
+    case "replay_2025":
+      capacityLoss = 40;
+      scenarioName = "2025 US-Iran Standoff Backtest";
+      break;
     case "custom":
     default:
       capacityLoss = typeof customCapacityLoss === "number" ? customCapacityLoss : 10;
@@ -131,6 +135,13 @@ export async function POST(request: Request) {
         "Assumes 100% of Cape route rerouting adds 12 days to tankers from Europe and West Africa.",
         "Assumes Suez transit fees remain elevated, adding $1.20 per barrel in fixed logistics costs.",
         "Assumes domestic SPR remains closed, depending entirely on standard commercial pipeline buffers."
+      ];
+    } else if (scenarioId === "replay_2025") {
+      assumptions = [
+        "Factual: 2025 US-Iran Persian Gulf standoff bottlenecked Hormuz corridor transit (40% disruption).",
+        "Factual: Brent crude price spiked 8.2% within a single trading session during peak escalation.",
+        "Modeled: Indian refiners were forced onto spot markets, purchasing replacement grades at high premiums.",
+        "Modeled: Sentinel-47 would suggest drawing 2.2 million barrels/day from SPR reserves to cushion refinery impact."
       ];
     } else {
       assumptions = [

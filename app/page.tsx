@@ -249,6 +249,9 @@ export default function Dashboard() {
     } else if (scId === "red_sea_full") {
       computedLoss = 80;
       scenarioName = "Red Sea Full Transit Suspension";
+    } else if (scId === "replay_2025") {
+      computedLoss = 40;
+      scenarioName = "2025 US-Iran Standoff Backtest";
     }
 
     // 2. Modeler Agent
