@@ -1,52 +1,67 @@
-TASK: Convert single-point modeled metrics in Module 2 (Disruption
-Scenario Modeller) to ranges. Do NOT touch the underlying calculation
-engine, scenario presets, or any other module — this is a display
-formatting change only, applied to the 4 existing metric cards
-(Refinery Run Rate, Fuel Price Shock, SPR Buffer Cover, Quarterly GDP
-Drag).
+TASK: Add a "Sentinel Resilience Index" — a single composite national
+score — to the persistent top strip. Do NOT touch any existing module's
+calculation logic. This is purely a new derived metric that READS from
+data your 4 modules already compute; it must not introduce any new
+independent calculations.
 
-WHAT TO CHANGE
-For each metric, instead of displaying one exact computed value,
-compute and display a range: [computed_value - spread, computed_value
-+ spread], where spread is a fixed, clearly-defined percentage of the
-computed value (e.g. ±15%) — pick ONE consistent spread percentage
-and apply it uniformly across all 4 metrics, don't vary it per metric
-without a stated reason.
+WHAT TO BUILD
+A single number, 0-100, displayed prominently in the top strip
+alongside the existing Brent price / corridor risk indicators —
+e.g. "INDIA RESILIENCE SCORE: 62" with a small colored ring/badge
+(green 70+, amber 40-69, red <40).
 
-Example transformations:
-- "Refinery Run Rate: 79%" → "Refinery Run Rate: 73%–85%"
-- "Fuel Price Shock: +₹14.00/litre" → "+₹11.90–₹16.10/litre"
-- "SPR Buffer Cover: 5.8 days left" → "5.0–6.6 days left"
-- "Quarterly GDP Drag: -0.80%" → "-0.68% to -0.92%"
+COMPOSITE FORMULA (reuse existing live values, weight them — do not
+invent new inputs):
+  score = 100 - weighted_average(
+    corridor_risk_component,      weight: 0.30   // from Module 1's
+                                                   // live corridor %s
+                                                   // (avg of Hormuz/
+                                                   // Red Sea/Suez)
+    spr_depletion_component,      weight: 0.30   // from Module 2's
+                                                   // SPR buffer days,
+                                                   // normalized against
+                                                   // the 9.5-day baseline
+    refinery_exposure_component,  weight: 0.25   // from Module 2's
+                                                   // refinery run-rate
+                                                   // drop %
+    gdp_drag_component,           weight: 0.15   // from Module 2's
+                                                   // GDP drag %
+  )
+  Normalize each component to a 0-100 sub-score before weighting
+  (e.g. corridor_risk_component = 100 - avg_corridor_risk_pct).
+  If no scenario is active in Module 2, use baseline/stable values
+  for those components so the score still renders meaningfully at
+  rest (should read high, e.g. 85-95, when nothing is active).
 
-DISPLAY TREATMENT
-- Show the range as the primary number (not a small subtext) — this
-  is a credibility upgrade, not a footnote.
-- Keep the existing before/after bar visual, but change it to show
-  a shaded BAND (min-to-max) instead of a single bar endpoint, with
-  the original point-estimate shown as a thin marker line inside
-  the band, so users can still see "most likely value" within the
-  range.
-- Add a small inline label near each metric: "MODELED RANGE" using
-  the same caption styling as existing "MODELED ILLUSTRATIVE DATA"
-  labels elsewhere in the app — keep the data-honesty convention
-  consistent.
+INTERACTIVITY
+- The score MUST update live when corridor risk changes (Module 1
+  refresh) or when a scenario is selected in Module 2 — pull from
+  the same shared state those modules already write to, don't poll
+  separately.
+- Animate the score number with a tween (400-600ms) on change, same
+  pattern as other live metrics in the app.
+- Clicking the score badge opens a small breakdown popover showing
+  the 4 weighted components and their current sub-scores, so it's
+  never a black-box number — this is critical for judge credibility.
 
-WHY (for context, not for UI)
-Single-point estimates overstate model confidence. Showing a range
-signals statistical honesty and is more defensible under judge
-questioning about precision.
+LABELING (matches existing data-honesty convention)
+Add a small caption under/near the score: "COMPOSITE — DERIVED FROM
+LIVE + MODELED MODULE DATA" and in the breakdown popover, label each
+component as either LIVE (corridor risk, since it's news-derived) or
+MODELED (SPR/refinery/GDP, since those come from scenario simulation).
+
+SCALABILITY FRAMING (for the pitch, not the UI)
+Add one line of code comment near the formula: "Methodology
+generalizes to any import-dependent economy or critical commodity by
+substituting corridor/reserve/GDP inputs — scoring structure is
+commodity-agnostic." This is just a comment for your own reference
+when explaining scalability to judges, not user-facing text.
 
 CONSTRAINTS
-- The original point-estimate value must still be computed exactly as
-  before — you are only changing how it's DISPLAYED, wrapping it in a
-  range for presentation. Do not change the underlying scenario math.
-- Apply this to all 5 scenario presets (including the Time Machine
-  mode if already built) for consistency — a range on 4 presets and a
-  single point on the 5th will look like an oversight.
-- Verify the assumptions panel below still references the original
-  point estimate in its text (e.g. "assumes X% drop") so the stated
-  assumptions don't contradict the displayed range.
+- This must be a pure derived/computed display value — verify it has
+  no independent data fetch of its own, only reads from existing
+  module state.
+- Confirm the formula's 4 weights sum to 1.0 exactly.
 
-Show me the exact spread percentage you'll use and confirm it applies
-uniformly before implementing.
+Show me the exact normalization logic for each of the 4 components
+before wiring it into the top strip.

@@ -6,6 +6,8 @@ import RiskIntelligence from "@/components/RiskIntelligence";
 import ScenarioModeller from "@/components/ScenarioModeller";
 import ProcurementOrchestrator from "@/components/ProcurementOrchestrator";
 import ExecutiveMemo from "@/components/ExecutiveMemo";
+import AnimatedNumber from "@/components/AnimatedNumber";
+
 
 // Interfaces
 interface GeopoliticalSignal {
@@ -110,6 +112,8 @@ export default function Dashboard() {
   const [demoPaused, setDemoPaused] = useState<boolean>(false);
   const [demoTime, setDemoTime] = useState<number>(0);
   const [procurementVisibleCount, setProcurementVisibleCount] = useState<number | undefined>(undefined);
+  const [showResiliencePopover, setShowResiliencePopover] = useState<boolean>(false);
+
 
   // Core pipelines
   // Fetch Geopolitical Risk intelligence
@@ -512,6 +516,52 @@ export default function Dashboard() {
     { icon: FileText, label: "4. Executive Brief" },
   ];
 
+  const hormuzRisk = corridors["Hormuz"]?.score ?? 15;
+  const redSeaRisk = corridors["Red Sea"]?.score ?? 15;
+  const suezRisk = corridors["Suez"]?.score ?? 15;
+  const avgCorridorRisk = (hormuzRisk + redSeaRisk + suezRisk) / 3;
+  const corridorResilience = 100 - avgCorridorRisk;
+
+  const sprDays = impact?.days_of_cover ?? 9.5;
+  const sprResilience = (sprDays / 9.5) * 100;
+
+  const runRateDrop = impact?.refinery_run_rate_drop ?? 0;
+  const refineryResilience = 100 - runRateDrop;
+
+  const gdpDragVal = impact?.gdp_drag ?? 0;
+  const gdpResilience = Math.max(0, 100 - (gdpDragVal / 1.5) * 100);
+
+  // Methodology generalizes to any import-dependent economy or critical commodity by substituting corridor/reserve/GDP inputs — scoring structure is commodity-agnostic.
+  const compositeResilienceScore = Math.round(
+    (corridorResilience * 0.30) +
+    (sprResilience * 0.30) +
+    (refineryResilience * 0.25) +
+    (gdpResilience * 0.15)
+  );
+
+  const getResilienceColor = (score: number) => {
+    if (score >= 70) return {
+      text: "text-cyber-green",
+      border: "border-cyber-green/40",
+      bg: "bg-cyber-green/10",
+      glow: "shadow-[0_0_12px_rgba(16,185,129,0.25)]",
+    };
+    if (score >= 40) return {
+      text: "text-cyber-amber",
+      border: "border-cyber-amber/40",
+      bg: "bg-cyber-amber/10",
+      glow: "shadow-[0_0_12px_rgba(245,158,11,0.25)]",
+    };
+    return {
+      text: "text-cyber-red",
+      border: "border-cyber-red/40",
+      bg: "bg-cyber-red/10",
+      glow: "shadow-[0_0_12px_rgba(239,68,68,0.25)]",
+    };
+  };
+
+  const resilienceStyles = getResilienceColor(compositeResilienceScore);
+
   return (
     <div className="flex flex-col min-h-screen text-gray-100 bg-[#030712] font-sans">
       
@@ -534,7 +584,7 @@ export default function Dashboard() {
         </div>
 
         {/* Center: Ambient Awareness Telemetry */}
-        <div className="hidden md:flex items-center gap-6 text-[10px] font-mono text-gray-400">
+        <div className="hidden md:flex items-center gap-5 text-[10px] font-mono text-gray-400">
           
           {/* Brent crude baseline price */}
           <div className="flex items-center gap-1.5">
@@ -551,7 +601,7 @@ export default function Dashboard() {
             const textColor = isCritical ? "text-cyber-red" : isWarning ? "text-cyber-orange" : "text-cyber-green";
             
             return (
-              <div key={corridorName} className="flex items-center gap-1.5 border-l border-cyber-border/80 pl-4">
+              <div key={corridorName} className="flex items-center gap-1.5 border-l border-cyber-border/80 pl-3">
                 <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
                 <span className="text-gray-500 uppercase">{corridorName}:</span>
                 <span className={`${textColor} font-bold`}>{data.score}%</span>
@@ -560,13 +610,122 @@ export default function Dashboard() {
           })}
 
           {/* Overall DEFCON system status */}
-          <div className="flex items-center gap-1.5 border-l border-cyber-border/80 pl-4">
+          <div className="flex items-center gap-1.5 border-l border-cyber-border/80 pl-3">
             <span className="text-gray-500">SYSTEM STATE:</span>
             <span className="text-cyber-blue font-bold uppercase tracking-wide">
               {demoActive ? "DEMO_TEST_RUN" : corridors["Red Sea"]?.status === "WARNING" || corridors.Hormuz?.status === "CRITICAL" ? "WARN_EVAL" : "ACTIVE_STANDBY"}
             </span>
           </div>
+
+          {/* Sentinel Resilience Index Composite Score */}
+          <div className="relative flex items-center gap-2 border-l border-cyber-border/80 pl-3">
+            <div
+              onClick={() => setShowResiliencePopover(!showResiliencePopover)}
+              className={`flex items-center gap-2 px-2.5 py-0.5 rounded border cursor-pointer transition-all duration-300 ${resilienceStyles.border} ${resilienceStyles.bg} ${resilienceStyles.glow} hover:scale-[1.02]`}
+            >
+              <div className="flex flex-col text-left">
+                <span className="text-[7.5px] text-gray-500 font-mono font-bold leading-none">INDIA RESILIENCE</span>
+                <span className="text-[7.5px] text-gray-300 font-mono mt-0.5 leading-none">SCORE:</span>
+              </div>
+              <div className={`text-xs font-black font-mono leading-none ${resilienceStyles.text}`}>
+                <AnimatedNumber value={compositeResilienceScore} duration={500} formatter={(n) => `${Math.round(n)}`} />
+              </div>
+            </div>
+            
+            <span className="hidden lg:block text-[7.5px] text-gray-500 font-mono uppercase tracking-wide max-w-[85px] border-l border-cyber-border/40 pl-2 leading-tight text-left">
+              COMPOSITE — DERIVED FROM LIVE + MODELED MODULE DATA
+            </span>
+
+            {/* Breakdown Popover */}
+            {showResiliencePopover && (
+              <div className="absolute top-full right-0 mt-2.5 w-[280px] bg-[#070b13]/95 border border-cyber-border/90 rounded p-4 shadow-2xl z-50 text-left font-mono backdrop-blur-md">
+                <div className="flex items-center justify-between border-b border-cyber-border/80 pb-2 mb-3">
+                  <span className="text-[9px] uppercase font-bold text-white tracking-wider">
+                    Resilience Index Breakdown
+                  </span>
+                  <button
+                    onClick={() => setShowResiliencePopover(false)}
+                    className="text-[9px] text-gray-500 hover:text-white uppercase font-bold"
+                  >
+                    Close
+                  </button>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  {/* Corridor Risk */}
+                  <div className="flex flex-col gap-1">
+                    <div className="flex justify-between items-center text-[9px]">
+                      <span className="text-gray-400 flex items-center gap-1">
+                        1. Corridor Risk
+                        <span className="px-1 py-0.2 rounded bg-cyber-blue/10 border border-cyber-blue/20 text-cyber-blue text-[7px] font-bold">LIVE</span>
+                      </span>
+                      <span className="text-white font-bold">{Math.round(corridorResilience)}/100 (w: 30%)</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-slate-900 border border-slate-800 rounded overflow-hidden">
+                      <div className="h-full bg-cyber-blue transition-all duration-500" style={{ width: `${corridorResilience}%` }} />
+                    </div>
+                    <span className="text-[8px] text-gray-500">Avg Corridor Risk: {Math.round(avgCorridorRisk)}%</span>
+                  </div>
+
+                  {/* SPR Depletion */}
+                  <div className="flex flex-col gap-1">
+                    <div className="flex justify-between items-center text-[9px]">
+                      <span className="text-gray-400 flex items-center gap-1">
+                        2. SPR Depletion
+                        <span className="px-1 py-0.2 rounded bg-cyber-indigo/10 border border-cyber-indigo/20 text-cyber-indigo text-[7px] font-bold">MODELED</span>
+                      </span>
+                      <span className="text-white font-bold">{Math.round(sprResilience)}/100 (w: 30%)</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-slate-900 border border-slate-800 rounded overflow-hidden">
+                      <div className="h-full bg-cyber-indigo transition-all duration-500" style={{ width: `${sprResilience}%` }} />
+                    </div>
+                    <span className="text-[8px] text-gray-500">SPR Cover: {sprDays.toFixed(1)} / 9.5 Days</span>
+                  </div>
+
+                  {/* Refinery Exposure */}
+                  <div className="flex flex-col gap-1">
+                    <div className="flex justify-between items-center text-[9px]">
+                      <span className="text-gray-400 flex items-center gap-1">
+                        3. Refinery Exposure
+                        <span className="px-1 py-0.2 rounded bg-cyber-indigo/10 border border-cyber-indigo/20 text-cyber-indigo text-[7px] font-bold">MODELED</span>
+                      </span>
+                      <span className="text-white font-bold">{Math.round(refineryResilience)}/100 (w: 25%)</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-slate-900 border border-slate-800 rounded overflow-hidden">
+                      <div className="h-full bg-cyber-orange transition-all duration-500" style={{ width: `${refineryResilience}%` }} />
+                    </div>
+                    <span className="text-[8px] text-gray-500">Refinery Run Rate: {Math.round(refineryResilience)}% (drop: -{runRateDrop.toFixed(1)}%)</span>
+                  </div>
+
+                  {/* GDP Drag */}
+                  <div className="flex flex-col gap-1">
+                    <div className="flex justify-between items-center text-[9px]">
+                      <span className="text-gray-400 flex items-center gap-1">
+                        4. GDP Drag
+                        <span className="px-1 py-0.2 rounded bg-cyber-indigo/10 border border-cyber-indigo/20 text-cyber-indigo text-[7px] font-bold">MODELED</span>
+                      </span>
+                      <span className="text-white font-bold">{Math.round(gdpResilience)}/100 (w: 15%)</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-slate-900 border border-slate-800 rounded overflow-hidden">
+                      <div className="h-full bg-cyber-red transition-all duration-500" style={{ width: `${gdpResilience}%` }} />
+                    </div>
+                    <span className="text-[8px] text-gray-500">GDP Drag: -{gdpDragVal.toFixed(2)}% (max normalized: 1.5%)</span>
+                  </div>
+                </div>
+
+                <div className="mt-3.5 border-t border-cyber-border/70 pt-2.5 flex flex-col text-[8px] text-gray-500 leading-normal gap-1.5">
+                  <span className="text-cyber-blue font-bold tracking-wide uppercase">
+                    COMPOSITE — DERIVED FROM LIVE + MODELED MODULE DATA
+                  </span>
+                  <span>
+                    Composite resilience score aggregates live pipeline news telemetry and stress testing scenarios under the active model constraints.
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
+
 
         {/* Right Action buttons */}
         <div className="flex items-center gap-3">
