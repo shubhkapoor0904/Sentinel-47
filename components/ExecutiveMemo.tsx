@@ -24,9 +24,10 @@ interface ExecutiveMemoProps {
   isLoading: boolean;
   onGenerate: () => void;
   gdpDrag: number;
+  sprDays: number;
 }
 
-export default function ExecutiveMemo({ memo, isLoading, onGenerate, gdpDrag }: ExecutiveMemoProps) {
+export default function ExecutiveMemo({ memo, isLoading, onGenerate, gdpDrag, sprDays }: ExecutiveMemoProps) {
   const memoRef = useRef<HTMLDivElement>(null);
   const [localCompiling, setLocalCompiling] = useState(false);
   const [compileProgress, setCompileProgress] = useState(0);
@@ -316,6 +317,17 @@ export default function ExecutiveMemo({ memo, isLoading, onGenerate, gdpDrag }: 
               <p className="text-xs leading-relaxed text-gray-800 text-justify italic font-semibold border-l-2 border-gray-800 pl-3">
                 {memo.sprDirectives}
               </p>
+              {sprDays < 4.0 && (
+                <div className="mt-3.5 border border-red-500 bg-red-50 text-red-700 px-3.5 py-2.5 rounded font-mono text-[10px] font-bold flex flex-col gap-1 select-none print:bg-white print:border-red-600 print:text-red-700 shrink-0">
+                  <div className="flex items-center gap-1.5 uppercase tracking-wider text-red-800">
+                    <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse" />
+                    <span>⚠️ CRITICAL RESERVE DEPLETION ALERT</span>
+                  </div>
+                  <p className="font-sans text-[10.5px] font-medium leading-relaxed mt-0.5">
+                    National Strategic Petroleum Reserves have fallen to {sprDays.toFixed(1)} days of total net import cover (below the safety margin of 4.0 days). Visakhapatnam, Mangalore, and Padur storage caverns are executing emergency drawdown limit orders.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Signature Block */}

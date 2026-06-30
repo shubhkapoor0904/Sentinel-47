@@ -16,6 +16,10 @@ interface ScenarioModellerProps {
   activeScenarioId: string;
   customCapacityLoss: number;
   impact: ScenarioImpact;
+  animatedDaysOfCover: number;
+  animatedRefinery: number;
+  animatedPrice: number;
+  animatedGdp: number;
   isLoading: boolean;
   onScenarioChange: (scenarioId: string) => void;
   onCustomLossChange: (loss: number) => void;
@@ -25,6 +29,10 @@ export default function ScenarioModeller({
   activeScenarioId,
   customCapacityLoss,
   impact,
+  animatedDaysOfCover,
+  animatedRefinery,
+  animatedPrice,
+  animatedGdp,
   isLoading,
   onScenarioChange,
   onCustomLossChange,
@@ -117,42 +125,42 @@ export default function ScenarioModeller({
     {
       id: "refinery",
       label: "Jamnagar Refinery",
-      value: `${100 - impact.refinery_run_rate_drop}% Run Rate`,
-      severity: getSeverity("refinery_run_rate", 100 - impact.refinery_run_rate_drop),
+      value: `${(100 - animatedRefinery).toFixed(1)}% Run Rate`,
+      severity: getSeverity("refinery_run_rate", 100 - animatedRefinery),
       hop: 1,
       x: 180, // 30%
       y: 100, // Middle row (perfectly centered)
-      tooltip: `Operational throughput at Jamnagar drops by -${impact.refinery_run_rate_drop.toFixed(1)}% due to raw input delays.`
+      tooltip: `Operational throughput at Jamnagar drops by -${animatedRefinery.toFixed(1)}% due to raw input delays.`
     },
     {
       id: "spr",
       label: "SPR Buffer Drawdown",
-      value: `${impact.days_of_cover.toFixed(1)} Days`,
-      severity: getSeverity("spr_cover", impact.days_of_cover),
+      value: `${animatedDaysOfCover.toFixed(1)} Days`,
+      severity: getSeverity("spr_cover", animatedDaysOfCover),
       hop: 1,
       x: 420, // 70%
       y: 100, // Middle row (perfectly centered)
-      tooltip: `Strategic Reserves Net Cover shrinks to ${impact.days_of_cover.toFixed(1)} days to maintain refinery operations.`
+      tooltip: `Strategic Reserves Net Cover shrinks to ${animatedDaysOfCover.toFixed(1)} days to maintain refinery operations.`
     },
     {
       id: "price_shock",
       label: "Fuel Price Shock",
-      value: `+₹${impact.fuel_price_delta.toFixed(1)}/L`,
-      severity: getSeverity("fuel_price", impact.fuel_price_delta),
+      value: `+₹${animatedPrice.toFixed(1)}/L`,
+      severity: getSeverity("fuel_price", animatedPrice),
       hop: 2,
       x: 110, // 18.3% (shifted left to clear GDP card)
       y: 170, // Bottom row (leaves 8px padding below 44px card)
-      tooltip: `Pump retail fuel price increases by +Rs ${impact.fuel_price_delta.toFixed(2)}/litre passed to end consumers.`
+      tooltip: `Pump retail fuel price increases by +Rs ${animatedPrice.toFixed(2)}/litre passed to end consumers.`
     },
     {
       id: "gdp",
       label: "Quarterly GDP Drag",
-      value: `-${impact.gdp_drag.toFixed(2)}%`,
-      severity: getSeverity("gdp_drag", impact.gdp_drag),
+      value: `-${animatedGdp.toFixed(2)}%`,
+      severity: getSeverity("gdp_drag", animatedGdp),
       hop: 2,
       x: 250, // 41.6% (positioned under refinery tree branch)
       y: 170, // Bottom row (leaves 8px padding below 44px card)
-      tooltip: `Macroeconomic friction induces an estimated -${impact.gdp_drag.toFixed(2)}% drag on India's quarterly GDP growth.`
+      tooltip: `Macroeconomic friction induces an estimated -${animatedGdp.toFixed(2)}% drag on India's quarterly GDP growth.`
     }
   ];
 
@@ -458,63 +466,187 @@ export default function ScenarioModeller({
               );
             })()}
 
-            {/* Metric 3: SPR Days-of-Cover */}
+            {/* Metric 3: SPR Command Center */}
             {(() => {
-              const sprSev = getSeverity("spr_cover", impact.days_of_cover);
-              const sprColor = getSeverityColorClass(sprSev);
-              const sprBarColor = getSeverityBarClass(sprSev);
+              const days = animatedDaysOfCover;
+              
+              // Stagger fill percentages across caverns proportionally: Padur (98%), Mangalore (94%), Visakhapatnam (88%)
+              const vPercent = Math.max(0, (days / 9.5) * 88);
+              const mPercent = Math.max(0, (days / 9.5) * 94);
+              const pPercent = Math.max(0, (days / 9.5) * 98);
 
-              const days = impact.days_of_cover;
-              const spread = days * 0.15;
-              const minDays = Math.max(0, days - spread);
-              const maxDays = Math.min(9.5, days + spread);
+              const vDays = (vPercent / 100) * 2.375;
+              const mDays = (mPercent / 100) * 3.325;
+              const pDays = (pPercent / 100) * 3.8;
 
-              const midPercent = (days / 9.5) * 100;
-              const minPercent = (minDays / 9.5) * 100;
-              const maxPercent = (maxDays / 9.5) * 100;
+              // Active draw factor based on scenario
+              let drawFactor = 0;
+              if (activeScenarioId === "hormuz_50") drawFactor = 1.0;
+              else if (activeScenarioId === "red_sea_full") drawFactor = 0.8;
+              else if (activeScenarioId === "opec_cut") drawFactor = 0.4;
+              else if (activeScenarioId === "replay_2025") drawFactor = 0.6;
+              else if (activeScenarioId === "custom") drawFactor = customCapacityLoss / 100;
+
+              const vDraw = drawFactor * 0.30;
+              const mDraw = drawFactor * 0.45;
+              const pDraw = drawFactor * 0.75;
+              const totalDraw = vDraw + mDraw + pDraw;
+
+              const getCavernConfig = (pct: number) => {
+                if (pct >= 60) {
+                  return {
+                    status: "Normal",
+                    rec: "HOLD",
+                    gradient: "from-cyber-green/25 to-cyber-green/80",
+                    border: "border-cyber-green/30",
+                    textClass: "text-cyber-green",
+                    badgeClass: "bg-cyber-green/5 border-cyber-green/20 text-cyber-green"
+                  };
+                } else if (pct >= 30) {
+                  return {
+                    status: "Heavy Draw",
+                    rec: "DRAW ACTIVE",
+                    gradient: "from-cyber-amber/25 to-cyber-amber/80",
+                    border: "border-cyber-amber/30",
+                    textClass: "text-cyber-amber",
+                    badgeClass: "bg-cyber-amber/5 border-cyber-amber/20 text-cyber-amber"
+                  };
+                } else if (pct >= 5) {
+                  return {
+                    status: "Critical",
+                    rec: "LIMIT DRAW",
+                    gradient: "from-cyber-red/25 to-cyber-red/80",
+                    border: "border-cyber-red/30",
+                    textClass: "text-cyber-red",
+                    badgeClass: "bg-cyber-red/5 border-cyber-red/20 text-cyber-red"
+                  };
+                } else {
+                  return {
+                    status: "Offline",
+                    rec: "PRESERVE",
+                    gradient: "from-gray-800 to-gray-700",
+                    border: "border-gray-700/30",
+                    textClass: "text-gray-500",
+                    badgeClass: "bg-gray-500/5 border-gray-500/20 text-gray-500"
+                  };
+                }
+              };
+
+              const vConf = getCavernConfig(vPercent);
+              const mConf = getCavernConfig(mPercent);
+              const pConf = getCavernConfig(pPercent);
+
+              let overallRec = "PRESERVE / STANDBY";
+              let overallColor = "text-cyber-green";
+              if (days < 4.0) {
+                overallRec = "CRITICAL EMERGENCY RELEASE";
+                overallColor = "text-cyber-red";
+              } else if (days < 7.0) {
+                overallRec = "CONTROLLED DRAWDOWN";
+                overallColor = "text-cyber-amber";
+              }
+
+              const caverns = [
+                { name: "Visakhapatnam", share: "25%", days: vDays, pct: vPercent, draw: vDraw, conf: vConf },
+                { name: "Mangalore", share: "35%", days: mDays, pct: mPercent, draw: mDraw, conf: mConf },
+                { name: "Padur", share: "40%", days: pDays, pct: pPercent, draw: pDraw, conf: pConf }
+              ];
 
               return (
-                <div className="bg-[#0b0f19]/50 border border-cyber-border p-3.5 rounded flex flex-col justify-between h-[125px]">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[9px] font-mono text-gray-500 uppercase font-bold">SPR Buffer Cover</span>
-                    <span className="text-[7.5px] font-mono text-cyber-orange border border-cyber-orange/30 bg-cyber-orange/5 px-1 py-0.5 rounded leading-none">MODELED RANGE</span>
+                <div className="bg-[#0b0f19]/50 border border-cyber-border p-3.5 rounded flex flex-col justify-between h-[266px]">
+                  {/* Card Header */}
+                  <div className="flex justify-between items-center border-b border-cyber-border/40 pb-1.5 shrink-0">
+                    <span className="text-[9px] font-mono text-cyber-orange uppercase font-bold flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-cyber-orange animate-pulse" />
+                      Strategic Petroleum Reserve Command Center
+                    </span>
+                    <span className="text-[7.5px] font-mono text-gray-500 uppercase">Live Cavern Telemetry</span>
                   </div>
-                  <div>
-                    <div className={`text-lg font-bold font-mono tracking-tight ${sprColor}`}>
-                      {days === 9.5 ? (
-                        <span>9.5</span>
-                      ) : (
-                        <>
-                          <AnimatedNumber value={minDays} duration={500} formatter={(n) => n.toFixed(1)} />
-                          –
-                          <AnimatedNumber value={maxDays} duration={500} formatter={(n) => n.toFixed(1)} />
-                        </>
-                      )}
-                      <span className="text-[10px] font-normal text-gray-400"> days left</span>
-                    </div>
-                    <div className={`text-[9px] font-mono mt-0.5 ${sprColor}`}>
-                      Drawdown: -<AnimatedNumber value={9.5 - days} duration={500} formatter={(n) => `${n.toFixed(1)}`} /> days
-                    </div>
+
+                  {/* Caverns Row */}
+                  <div className="grid grid-cols-3 gap-2 my-2 flex-1 items-center">
+                    {caverns.map((cav) => (
+                      <div key={cav.name} className={`flex flex-col items-center border ${cav.conf.border} bg-slate-955/20 p-1.5 rounded font-mono text-center`}>
+                        <span className="text-[7.5px] font-bold text-gray-300 uppercase tracking-wide truncate max-w-full">
+                          {cav.name}
+                        </span>
+                        <span className="text-[7px] text-gray-500 leading-none">Share: {cav.share}</span>
+                        
+                        {/* Cylinder Graphic - Taller rectangular storage chamber design */}
+                        <div className="relative w-9 h-[74px] bg-slate-950/70 border border-cyber-border/25 rounded-t-md rounded-b shadow-[inset_0_2px_8px_rgba(0,0,0,0.9)] overflow-hidden my-1.5 flex flex-col justify-end">
+                          {/* Liquid Level */}
+                          <div 
+                            className={`w-full bg-gradient-to-t ${cav.conf.gradient} opacity-75`}
+                            style={{ 
+                              height: `${cav.pct}%`, 
+                              transition: 'height 10s cubic-bezier(0.4, 0, 0.2, 1)' 
+                            }}
+                          />
+                          {/* Animated Wave Surface overlay */}
+                          <div 
+                            className="absolute left-0 right-0 h-1.5 overflow-hidden pointer-events-none"
+                            style={{ 
+                              bottom: `calc(${cav.pct}% - 3.5px)`, 
+                              transition: 'bottom 10s cubic-bezier(0.4, 0, 0.2, 1)' 
+                            }}
+                          >
+                            <svg viewBox="0 0 100 20" preserveAspectRatio="none" className={`w-[200%] h-full fill-current ${cav.conf.textClass} opacity-40 animate-wave`}>
+                              <path d="M 0,10 Q 25,18 50,10 T 100,10 L 100,20 L 0,20 Z" />
+                            </svg>
+                          </div>
+                          {/* Glowing Cap Line */}
+                          <div 
+                            className="absolute w-full h-[2px] bg-white opacity-95 z-10 shadow-[0_0_6px_rgba(255,255,255,1)]" 
+                            style={{ 
+                              bottom: `calc(${cav.pct}% - 1px)`, 
+                              transition: 'bottom 10s cubic-bezier(0.4, 0, 0.2, 1)' 
+                            }}
+                          />
+                        </div>
+
+                        <span className="text-[9px] font-bold text-white leading-none">
+                          {cav.pct.toFixed(0)}%
+                        </span>
+                        <span className="text-[7.5px] text-gray-400 mt-0.5">
+                          {cav.days.toFixed(1)}d cover
+                        </span>
+                        <span className="text-[7px] text-gray-500 font-bold leading-none mt-0.5">
+                          -{cav.draw.toFixed(2)} Mmbpd
+                        </span>
+                        <span className={`text-[6.5px] font-extrabold border rounded px-1 mt-1 leading-normal uppercase ${cav.conf.badgeClass}`}>
+                          {cav.conf.status}
+                        </span>
+                      </div>
+                    ))}
                   </div>
-                  
-                  {/* Animated Horizontal Tube */}
-                  <div className="relative h-4 w-full bg-slate-955 border border-slate-800 rounded overflow-hidden mt-2 select-none">
-                    {/* Ghost Outline (representing 9.5 days baseline) */}
-                    <div className="absolute inset-0 border border-dashed border-cyber-green/40 rounded opacity-60 z-10 pointer-events-none" />
-                    {/* Shaded Band */}
-                    <div
-                      className={`absolute h-full bg-gradient-to-r ${sprBarColor} opacity-40 transition-all duration-500 ease-out`}
-                      style={{ left: `${minPercent}%`, width: `${Math.max(1, maxPercent - minPercent)}%` }}
-                    />
-                    {/* Point Estimate Marker */}
-                    <div
-                      className="absolute h-full w-[2px] bg-white z-15 shadow-[0_0_8px_rgba(255,255,255,0.8)] transition-all duration-500 ease-out"
-                      style={{ left: `calc(${midPercent}% - 1px)` }}
-                    />
-                    {/* Text overlays inside */}
-                    <div className="absolute inset-0 flex justify-between items-center px-1.5 font-mono text-[8px] z-20 pointer-events-none">
-                      <span className="text-white font-bold">After (Range)</span>
-                      <span className="text-cyber-green font-bold">Before: 9.5d</span>
+
+                  {/* National Summary Block */}
+                  <div className="bg-slate-955/60 border border-cyber-border/30 rounded p-2 text-left font-mono text-[8.5px] leading-relaxed flex flex-col gap-1 shrink-0">
+                    <div className="flex justify-between items-center border-b border-cyber-border/20 pb-0.5 mb-0.5">
+                      <span className="text-gray-400">NATIONAL RESERVE SUMMARY</span>
+                      <span className="text-[7.5px] px-1 py-0.2 rounded bg-cyber-blue/10 border border-cyber-blue/20 text-cyber-blue font-bold">MODELED</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-4">
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Days of Cover:</span>
+                        <span className="text-white font-bold">{days.toFixed(1)} Days</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Critical Threshold:</span>
+                        <span className="text-cyber-red font-bold">3.0 Days</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Daily Draw Rate:</span>
+                        <span className="text-cyber-orange font-bold">-{totalDraw.toFixed(2)} Mmbpd</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Confidence Score:</span>
+                        <span className="text-cyber-blue font-bold">96%</span>
+                      </div>
+                    </div>
+                    <div className="flex justify-between border-t border-cyber-border/20 pt-0.5 mt-0.5">
+                      <span className="text-gray-500">AI Directives:</span>
+                      <span className={`font-black uppercase ${overallColor}`}>{overallRec}</span>
                     </div>
                   </div>
                 </div>
@@ -523,11 +655,11 @@ export default function ScenarioModeller({
 
             {/* Metric 4: GDP Growth Drag */}
             {(() => {
-              const gdpSev = getSeverity("gdp_drag", impact.gdp_drag);
+              const gdpSev = getSeverity("gdp_drag", animatedGdp);
               const gdpColor = getSeverityColorClass(gdpSev);
               const gdpBarColor = getSeverityBarClass(gdpSev);
 
-              const drag = impact.gdp_drag;
+              const drag = animatedGdp;
               const spread = drag * 0.15;
               const minDrag = drag - spread;
               const maxDrag = drag + spread;
@@ -537,13 +669,13 @@ export default function ScenarioModeller({
               const maxPercent = Math.min(100, (maxDrag / 1.5) * 100);
 
               return (
-                <div className="bg-[#0b0f19]/50 border border-cyber-border p-3.5 rounded flex flex-col justify-between h-[125px]">
-                  <div className="flex justify-between items-center">
+                <div className="bg-[#0b0f19]/50 border border-cyber-border p-3.5 rounded flex flex-col justify-between h-[266px]">
+                  <div className="flex justify-between items-center border-b border-cyber-border/40 pb-1.5 shrink-0">
                     <span className="text-[9px] font-mono text-gray-500 uppercase font-bold">Quarterly GDP Drag</span>
                     <span className="text-[7.5px] font-mono text-cyber-orange border border-cyber-orange/30 bg-cyber-orange/5 px-1 py-0.5 rounded leading-none">MODELED RANGE</span>
                   </div>
-                  <div>
-                    <div className={`text-lg font-bold font-mono tracking-tight ${gdpColor}`}>
+                  <div className="my-auto flex flex-col justify-center py-1">
+                    <div className={`text-2xl font-bold font-mono tracking-tight text-center ${gdpColor}`}>
                       {drag === 0 ? (
                         <span>0.00%</span>
                       ) : (
@@ -556,14 +688,65 @@ export default function ScenarioModeller({
                         </>
                       )}
                     </div>
-                    <div className="text-[9px] font-mono text-gray-500 mt-0.5 flex items-center gap-1">
-                      <Info className="w-3 h-3 text-cyber-blue" strokeWidth={2.5} />
-                      Spills to general inflation
+                    <div className="text-[8.5px] font-mono text-gray-500 mt-1 flex items-center justify-center gap-1.5">
+                      <Info className="w-3.5 h-3.5 text-cyber-blue" strokeWidth={2.5} />
+                      Cascading energy friction drags quarterly economic output
+                    </div>
+                  </div>
+
+                  {/* GDP Drag Sparkline timeline progression chart */}
+                  <div className="mt-1 pt-1.5 border-t border-cyber-border/20 shrink-0">
+                    <span className="text-[7px] font-mono text-gray-500 uppercase block tracking-wider mb-1">GDP Impact Timeline (Today → Qtr End)</span>
+                    <div className="h-[42px] w-full bg-[#050814]/65 border border-cyber-border/20 rounded relative overflow-hidden flex items-center justify-center p-1">
+                      <svg viewBox="0 0 200 40" className="w-full h-full">
+                        {/* Baseline zero line */}
+                        <line x1="0" y1="10" x2="200" y2="10" stroke="rgba(255,255,255,0.06)" strokeDasharray="2,2" />
+                        
+                        {(() => {
+                          const y1 = 10 + Math.min(25, drag * 10);
+                          const y2 = 10 + Math.min(25, drag * 18);
+                          const y3 = 10 + Math.min(25, drag * 26);
+                          
+                          const points = `10,10 70,${y1} 130,${y2} 190,${y3}`;
+                          const lineColor = drag > 0.5 ? "#ef4444" : drag > 0 ? "#f59e0b" : "#10b981";
+                          
+                          return (
+                            <>
+                              {/* Glow background line */}
+                              <polyline
+                                fill="none"
+                                stroke={lineColor}
+                                strokeWidth="3"
+                                points={points}
+                                className="opacity-25"
+                              />
+                              {/* Foreground line */}
+                              <polyline
+                                fill="none"
+                                stroke={lineColor}
+                                strokeWidth="1.2"
+                                points={points}
+                              />
+                              {/* Milestones nodes */}
+                              <circle cx="10" cy="10" r="1.8" fill="#10b981" className="shadow-[0_0_4px_#10b981]" />
+                              <circle cx="70" cy={y1} r="1.8" fill={lineColor} />
+                              <circle cx="130" cy={y2} r="1.8" fill={lineColor} />
+                              <circle cx="190" cy={y3} r="1.8" fill={lineColor} />
+                              
+                              {/* Ticks & Labels */}
+                              <text x="10" y="34" textAnchor="middle" className="font-mono text-[6px] fill-gray-500 font-bold">TODAY</text>
+                              <text x="70" y="34" textAnchor="middle" className="font-mono text-[6px] fill-gray-500 font-bold">WK 1</text>
+                              <text x="130" y="34" textAnchor="middle" className="font-mono text-[6px] fill-gray-500 font-bold">WK 2</text>
+                              <text x="190" y="34" textAnchor="middle" className="font-mono text-[6px] fill-gray-500 font-bold">QTR END</text>
+                            </>
+                          );
+                        })()}
+                      </svg>
                     </div>
                   </div>
                   
                   {/* Animated Horizontal Tube */}
-                  <div className="relative h-4 w-full bg-slate-955 border border-slate-800 rounded overflow-hidden mt-2 select-none">
+                  <div className="relative h-4 w-full bg-slate-955 border border-slate-800 rounded overflow-hidden select-none shrink-0">
                     {/* Shaded Band */}
                     <div
                       className={`absolute h-full bg-gradient-to-r ${gdpBarColor} opacity-40 transition-all duration-500 ease-out`}
@@ -576,7 +759,7 @@ export default function ScenarioModeller({
                     />
                     {/* Text overlays inside */}
                     <div className="absolute inset-0 flex justify-between items-center px-1.5 font-mono text-[8px] z-20 pointer-events-none">
-                      <span className="text-white font-bold">{drag > 0 ? "Drag (Range)" : "Normal"}</span>
+                      <span className="text-white font-bold">{drag > 0 ? "GDP Shock (Range)" : "Baseline"}</span>
                       <span className="text-gray-400 font-bold">Max Scale: 1.5%</span>
                     </div>
                   </div>
@@ -616,7 +799,7 @@ export default function ScenarioModeller({
                   </span>
                   <ul className="list-disc pl-4 flex flex-col gap-2 text-gray-300 text-[10.5px] font-sans">
                     <li><strong className="text-cyan-400 font-mono">Price Shock Model:</strong> Modeled fuel retail delta at <span className="text-cyber-red font-mono font-bold">+₹{impact.fuel_price_delta.toFixed(1)}/L</span>.</li>
-                    <li><strong className="text-cyan-400 font-mono">SPR Drawdown:</strong> Strategic reserves covers would be modeled dropping to <span className="text-cyber-amber font-mono font-bold">{impact.days_of_cover.toFixed(1)} Days</span>.</li>
+                    <li><strong className="text-cyan-400 font-mono">SPR Drawdown:</strong> Strategic reserves covers would be modeled dropping to <span className="text-cyber-amber font-mono font-bold">{animatedDaysOfCover.toFixed(1)} Days</span>.</li>
                     <li><strong className="text-cyan-400 font-mono">Detection Speed:</strong> Generated optimal procurement response options in <span className="text-cyber-green font-mono font-bold">~0.15s</span> (if Sentinel-47 had been deployed).</li>
                   </ul>
                 </div>
@@ -658,18 +841,57 @@ export default function ScenarioModeller({
                 {edges.map((edge, idx) => {
                   const targetNode = nodes.find(n => n.id === edge.targetNodeId);
                   const sev = targetNode?.severity || "stable";
-                  const strokeColor = sev === "critical" ? "rgba(239,68,68,0.3)" : sev === "warning" ? "rgba(249,115,22,0.3)" : "rgba(34,197,94,0.18)";
                   
+                  const strokeColor = sev === "critical" 
+                    ? "rgba(239,68,68,0.95)" 
+                    : sev === "warning" 
+                    ? "rgba(249,115,22,0.7)" 
+                    : "rgba(34,197,94,0.25)";
+                  
+                  const strokeWidth = sev === "critical" ? "2.6" : sev === "warning" ? "1.8" : "1.0";
+                  
+                  const pulseFillColor = sev === "critical" 
+                    ? "#ef4444" 
+                    : sev === "warning" 
+                    ? "#f59e0b" 
+                    : "#10b981";
+
+                  const pathD = `M ${edge.x1} ${edge.y1} C ${edge.x1} ${(edge.y1 + edge.y2) / 2}, ${edge.x2} ${(edge.y1 + edge.y2) / 2}, ${edge.x2} ${edge.y2}`;
+
                   return (
-                    <path
-                      key={idx}
-                      d={`M ${edge.x1} ${edge.y1} C ${edge.x1} ${(edge.y1 + edge.y2) / 2}, ${edge.x2} ${(edge.y1 + edge.y2) / 2}, ${edge.x2} ${edge.y2}`}
-                      fill="none"
-                      stroke={strokeColor}
-                      strokeWidth="1.5"
-                      markerEnd={`url(#arrow-${sev})`}
-                      className="pointer-events-none"
-                    />
+                    <React.Fragment key={idx}>
+                      {/* Glow path behind */}
+                      {sev !== "stable" && (
+                        <path
+                          d={pathD}
+                          fill="none"
+                          stroke={pulseFillColor}
+                          strokeWidth={Number(strokeWidth) + 3}
+                          className="opacity-15 pointer-events-none"
+                          style={{ filter: "blur(2px)" }}
+                        />
+                      )}
+                      {/* Foreground base path */}
+                      <path
+                        d={pathD}
+                        fill="none"
+                        stroke={strokeColor}
+                        strokeWidth={strokeWidth}
+                        markerEnd={`url(#arrow-${sev})`}
+                        className={`pointer-events-none ${sev !== "stable" ? "animate-path-pulse" : ""}`}
+                      />
+                      {/* Traveling pulse motion along curves */}
+                      {activeScenarioId !== "baseline" && (
+                        <circle r="1.8" fill={pulseFillColor} className="opacity-80 shadow-md">
+                          <animateMotion
+                            path={pathD}
+                            begin={`${idx * 0.4}s`}
+                            dur="3s"
+                            repeatCount="indefinite"
+                          />
+                        </circle>
+                      )}
+                    </React.Fragment>
                   );
                 })}
 
@@ -759,6 +981,23 @@ export default function ScenarioModeller({
           })}
         </div>
       </div>
+      <style jsx global>{`
+        @keyframes waveFlow {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        .animate-wave {
+          animation: waveFlow 4s linear infinite;
+        }
+        @keyframes pathPulse {
+          0% { stroke-dashoffset: 24; }
+          100% { stroke-dashoffset: 0; }
+        }
+        .animate-path-pulse {
+          stroke-dasharray: 6,6;
+          animation: pathPulse 2s linear infinite;
+        }
+      `}</style>
     </div>
   );
 }

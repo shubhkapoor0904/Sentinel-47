@@ -85,6 +85,64 @@ export default function Dashboard() {
     ],
   });
 
+  const [animatedDaysOfCover, setAnimatedDaysOfCover] = useState<number>(9.5);
+  const [animatedRefinery, setAnimatedRefinery] = useState<number>(0);
+  const [animatedPrice, setAnimatedPrice] = useState<number>(0);
+  const [animatedGdp, setAnimatedGdp] = useState<number>(0);
+
+  const animatedDaysRef = useRef(animatedDaysOfCover);
+  const animatedRefineryRef = useRef(animatedRefinery);
+  const animatedPriceRef = useRef(animatedPrice);
+  const animatedGdpRef = useRef(animatedGdp);
+
+  useEffect(() => {
+    animatedDaysRef.current = animatedDaysOfCover;
+    animatedRefineryRef.current = animatedRefinery;
+    animatedPriceRef.current = animatedPrice;
+    animatedGdpRef.current = animatedGdp;
+  }, [animatedDaysOfCover, animatedRefinery, animatedPrice, animatedGdp]);
+
+  useEffect(() => {
+    const targetDays = impact?.days_of_cover ?? 9.5;
+    const targetRefinery = impact?.refinery_run_rate_drop ?? 0;
+    const targetPrice = impact?.fuel_price_delta ?? 0;
+    const targetGdp = impact?.gdp_drag ?? 0;
+
+    const startDays = animatedDaysRef.current;
+    const startRefinery = animatedRefineryRef.current;
+    const startPrice = animatedPriceRef.current;
+    const startGdp = animatedGdpRef.current;
+
+    const duration = 10000; // 10 seconds synchronized tweening
+    const startTime = performance.now();
+    let animationFrameId: number;
+
+    const animate = (currentTime: number) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      // Easing function: easeInOutQuad
+      const ease = progress < 0.5 
+        ? 2 * progress * progress 
+        : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+
+      setAnimatedDaysOfCover(startDays + (targetDays - startDays) * ease);
+      setAnimatedRefinery(startRefinery + (targetRefinery - startRefinery) * ease);
+      setAnimatedPrice(startPrice + (targetPrice - startPrice) * ease);
+      setAnimatedGdp(startGdp + (targetGdp - startGdp) * ease);
+
+      if (progress < 1) {
+        animationFrameId = requestAnimationFrame(animate);
+      }
+    };
+
+    animationFrameId = requestAnimationFrame(animate);
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, [impact?.days_of_cover, impact?.refinery_run_rate_drop, impact?.fuel_price_delta, impact?.gdp_drag]);
+
   const [procurementOptions, setProcurementOptions] = useState<ProcurementOption[]>([]);
   const [memo, setMemo] = useState<MemoStructure>({
     memoId: "S47-MOPNG-PENDING",
@@ -522,7 +580,7 @@ export default function Dashboard() {
   const avgCorridorRisk = (hormuzRisk + redSeaRisk + suezRisk) / 3;
   const corridorResilience = 100 - avgCorridorRisk;
 
-  const sprDays = impact?.days_of_cover ?? 9.5;
+  const sprDays = animatedDaysOfCover;
   const sprResilience = (sprDays / 9.5) * 100;
 
   const runRateDrop = impact?.refinery_run_rate_drop ?? 0;
@@ -854,6 +912,10 @@ export default function Dashboard() {
               activeScenarioId={activeScenarioId}
               customCapacityLoss={customCapacityLoss}
               impact={impact}
+              animatedDaysOfCover={animatedDaysOfCover}
+              animatedRefinery={animatedRefinery}
+              animatedPrice={animatedPrice}
+              animatedGdp={animatedGdp}
               isLoading={isLoadingScenario}
               onScenarioChange={(scId) => {
                 setActiveScenarioId(scId);
@@ -889,6 +951,7 @@ export default function Dashboard() {
               memo={memo}
               isLoading={isLoadingMemo}
               gdpDrag={impact.gdp_drag}
+              sprDays={animatedDaysOfCover}
               onGenerate={() =>
                 triggerFullPipeline(activeScenarioId, customCapacityLoss)
               }
