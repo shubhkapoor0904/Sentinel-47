@@ -1,38 +1,12 @@
-### Final UI Polish Pass
+Response Interventions should not exist as an isolated UI control. They should modify the shared ScenarioImpact state so existing modules visibly react.
 
-Apply the following refinements without changing the overall layout or adding new modules.
+The intervention effects should be reflected in:
 
-#### 1. Quarterly GDP Drag Card
-The card currently feels visually empty compared to the rest of the dashboard. Improve information density by adding a compact secondary visualization beneath the headline metric.
+- India Resilience Score (header)
+- Scenario Modeller metrics (SPR, fuel price, refinery impact)
+- SPR Command Center
+- Ripple Effect graph (reduced severity)
+- Executive Memo (append active directives and updated projections)
+- Procurement recommendations (where applicable)
 
-Preferred option:
-- Add a small GDP impact timeline/sparkline showing progression (Today → Week 1 → Week 2 → Quarter End).
-
-Alternative:
-- Add a compact "Most Affected Sectors" list (Manufacturing, Transport, Aviation, etc.) with severity indicators.
-
-Keep it subtle and consistent with the existing HUD aesthetic.
-
----
-
-#### 2. SPR Chamber UI
-Refine the cavern visualization so it looks more like actual oil storage rather than capsules.
-
-- Make each chamber slightly taller.
-- Add a transparent container with a clearly visible liquid level.
-- Include a subtle animated wave/shimmer on the oil surface.
-- Smoothly animate depletion when scenarios change.
-- Stagger fill percentages across caverns instead of showing identical values.
-
-Keep the design minimal and consistent with the Sentinel-47 command-center aesthetic.
-
----
-
-#### 3. Ripple Effect Graph
-Enhance the existing ripple graph without redesigning it.
-
-- Animate small pulses travelling along the connecting paths to visualize disruption propagation.
-- Smoothly update node values and severity colors when scenarios change.
-- Slightly strengthen the visual hierarchy so the impact path is easier to follow.
-
-Keep the animation subtle, continuous, and professional—not flashy.
+Only update metrics that are logically affected by each intervention. Avoid changing unrelated modules or introducing unrealistic improvements.

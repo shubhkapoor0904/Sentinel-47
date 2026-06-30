@@ -25,9 +25,25 @@ interface ExecutiveMemoProps {
   onGenerate: () => void;
   gdpDrag: number;
   sprDays: number;
+  activeScenarioId: string;
+  activeInterventions: {
+    navyEscorts: boolean;
+    sprRelease: boolean;
+    opecNegotiation: boolean;
+  };
+  onToggleIntervention: (id: "navyEscorts" | "sprRelease" | "opecNegotiation") => void;
 }
 
-export default function ExecutiveMemo({ memo, isLoading, onGenerate, gdpDrag, sprDays }: ExecutiveMemoProps) {
+export default function ExecutiveMemo({
+  memo,
+  isLoading,
+  onGenerate,
+  gdpDrag,
+  sprDays,
+  activeScenarioId,
+  activeInterventions,
+  onToggleIntervention,
+}: ExecutiveMemoProps) {
   const memoRef = useRef<HTMLDivElement>(null);
   const [localCompiling, setLocalCompiling] = useState(false);
   const [compileProgress, setCompileProgress] = useState(0);
@@ -127,64 +143,145 @@ export default function ExecutiveMemo({ memo, isLoading, onGenerate, gdpDrag, sp
         </div>
       </div>
 
-      {/* Do Nothing vs. Sentinel-47 Strategic Response Comparison Panel (print:hidden) */}
+      {/* Restructured Comparison + Interventions (75/25 Split) */}
       {!localCompiling && (
-        <div className="bg-[#0b0f19]/60 border border-cyber-border rounded-lg p-5 flex flex-col gap-4 print:hidden text-left shrink-0">
-          <div className="flex items-center justify-between border-b border-cyber-border/40 pb-2.5">
-            <h3 className="font-mono text-xs font-bold text-cyber-orange uppercase tracking-wider flex items-center gap-1.5">
-              <ShieldAlert className="w-4 h-4 text-cyber-orange animate-pulse" />
-              Strategic Response Benchmark: Legacy vs. Sentinel-47
-            </h3>
-            <span className="text-[9px] font-mono text-gray-500 uppercase">
-              Operational Impact Analytics
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Legacy (Do Nothing) */}
-            <div className="border border-cyber-red/20 bg-cyber-red/5 p-4 rounded flex flex-col gap-2.5">
-              <span className="text-[10px] font-mono text-cyber-red uppercase tracking-wider font-extrabold">
-                Without Integrated Response (Legacy)
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 print:hidden text-left shrink-0">
+          {/* Left (75%) -> Existing cards */}
+          <div className="lg:col-span-3 bg-[#0b0f19]/60 border border-cyber-border rounded-lg p-5 flex flex-col gap-4">
+            <div className="flex items-center justify-between border-b border-cyber-border/40 pb-2.5">
+              <h3 className="font-mono text-xs font-bold text-cyber-orange uppercase tracking-wider flex items-center gap-1.5">
+                <ShieldAlert className="w-4 h-4 text-cyber-orange animate-pulse" />
+                Strategic Response Benchmark: Legacy vs. Sentinel-47
+              </h3>
+              <span className="text-[9px] font-mono text-gray-500 uppercase">
+                Operational Impact Analytics
               </span>
-              <div className="flex flex-col">
-                <span className="text-[8px] text-gray-500 uppercase font-mono">Stabilization Latency</span>
-                <span className="text-xl font-bold font-mono text-cyber-red tracking-tight">47 Days (MODELED)</span>
-              </div>
-              <div className="text-[10px] font-sans text-gray-400 leading-relaxed">
-                Manual multi-agency alignment cycles, static procurement channels, and delayed reserve releases induce prolonged price/supply shock loops.
-              </div>
             </div>
 
-            {/* Sentinel-47 */}
-            <div className="border border-cyber-blue/30 bg-cyber-blue/5 p-4 rounded flex flex-col justify-between gap-2.5">
-              <div>
-                <span className="text-[10px] font-mono text-cyber-blue uppercase tracking-wider font-extrabold">
-                  With Sentinel-47 (Active Response)
-                </span>
-                <div className="grid grid-cols-2 gap-4 mt-2.5">
-                  <div className="flex flex-col">
-                    <span className="text-[8px] text-gray-500 uppercase font-mono">Decision Latency</span>
-                    <span className="text-xl font-bold font-mono text-cyber-blue tracking-tight">
-                      {genTime} <span className="text-[8px] text-gray-500 uppercase font-normal">(ACTUAL)</span>
-                    </span>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[8px] text-gray-500 uppercase font-mono">GDP Drag Avoided</span>
-                    <span className="text-xl font-bold font-mono text-cyber-green tracking-tight">
-                      {gdpDrag > 0 ? `${(gdpDrag * 0.85).toFixed(2)} pp` : "0.00 pp"} <span className="text-[8px] text-gray-500 uppercase font-normal">(MODELED)</span>
-                    </span>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-grow">
+              {/* Legacy (Do Nothing) */}
+              <div className="border border-cyber-red/20 bg-cyber-red/5 p-4 rounded flex flex-col gap-2.5 justify-between">
+                <div>
+                  <span className="text-[10px] font-mono text-cyber-red uppercase tracking-wider font-extrabold">
+                    Without Integrated Response (Legacy)
+                  </span>
+                  <div className="flex flex-col mt-2.5">
+                    <span className="text-[8px] text-gray-500 uppercase font-mono">Stabilization Latency</span>
+                    <span className="text-xl font-bold font-mono text-cyber-red tracking-tight">47 Days (MODELED)</span>
                   </div>
                 </div>
+                <div className="text-[10px] font-sans text-gray-400 leading-relaxed border-t border-cyber-border/40 pt-2 mt-1">
+                  Manual multi-agency alignment cycles, static procurement channels, and delayed reserve releases induce prolonged price/supply shock loops.
+                </div>
               </div>
-              <div className="text-[10px] font-mono text-gray-400 leading-normal border-t border-cyber-border/40 pt-2">
-                {gdpDrag > 0 ? (
-                  <span>
-                    Estimated drag avoided: <strong className="text-cyber-green">{(gdpDrag * 0.85).toFixed(2)} pp</strong> of <strong className="text-gray-300">{gdpDrag.toFixed(2)} pp</strong> by acting same-day (MODELED).
+
+              {/* Sentinel-47 */}
+              <div className="border border-cyber-blue/30 bg-cyber-blue/5 p-4 rounded flex flex-col justify-between gap-2.5">
+                <div>
+                  <span className="text-[10px] font-mono text-cyber-blue uppercase tracking-wider font-extrabold">
+                    With Sentinel-47 (Active Response)
                   </span>
-                ) : (
-                  <span>No active disruptions. System operational at 100% baseline (MODELED).</span>
-                )}
+                  <div className="grid grid-cols-2 gap-4 mt-2.5">
+                    <div className="flex flex-col">
+                      <span className="text-[8px] text-gray-500 uppercase font-mono">Decision Latency</span>
+                      <span className="text-xl font-bold font-mono text-cyber-blue tracking-tight">
+                        {genTime} <span className="text-[8px] text-gray-500 uppercase font-normal">(ACTUAL)</span>
+                      </span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[8px] text-gray-500 uppercase font-mono">GDP Drag Avoided</span>
+                      <span className="text-xl font-bold font-mono text-cyber-green tracking-tight">
+                        {gdpDrag > 0 ? `${(gdpDrag * 0.85).toFixed(2)} pp` : "0.00 pp"} <span className="text-[8px] text-gray-500 uppercase font-normal">(MODELED)</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-[10px] font-mono text-gray-400 leading-normal border-t border-cyber-border/40 pt-2">
+                  {gdpDrag > 0 ? (
+                    <span>
+                      Estimated drag avoided: <strong className="text-cyber-green">{(gdpDrag * 0.85).toFixed(2)} pp</strong> of <strong className="text-gray-300">{gdpDrag.toFixed(2)} pp</strong> by acting same-day (MODELED).
+                    </span>
+                  ) : (
+                    <span>No active disruptions. System operational at 100% baseline (MODELED).</span>
+                  )}
+                </div>
               </div>
+            </div>
+          </div>
+
+          {/* Right (25%) -> New Ministerial Response Interventions panel */}
+          <div className="lg:col-span-1 bg-[#0b0f19]/60 border border-cyber-border rounded-lg p-5 flex flex-col gap-3 justify-between">
+            <div className="border-b border-cyber-border/40 pb-2.5 shrink-0">
+              <h3 className="font-mono text-xs font-bold text-cyber-blue uppercase tracking-wider flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-cyber-blue animate-pulse" />
+                Response Interventions
+              </h3>
+            </div>
+
+            {/* Directive Cards Container */}
+            <div className="flex flex-col gap-2.5 flex-grow justify-center">
+              {(() => {
+                // Determine disabled states based on activeScenarioId
+                const navyDisabled = activeScenarioId === "baseline" || activeScenarioId === "opec_cut";
+                const sprDisabled = activeScenarioId === "baseline";
+                const opecDisabled = activeScenarioId === "baseline";
+
+                const getCardStyle = (active: boolean, disabled: boolean) => {
+                  if (disabled) {
+                    return "border-gray-800 bg-gray-950/20 text-gray-600 cursor-not-allowed opacity-50";
+                  }
+                  if (active) {
+                    return "border-cyber-orange bg-cyber-orange/10 text-cyber-orange shadow-[0_0_10px_rgba(249,115,22,0.15)] cursor-pointer hover:bg-cyber-orange/15";
+                  }
+                  return "border-cyber-border bg-[#070b13]/50 text-gray-300 cursor-pointer hover:border-cyber-blue/50 hover:bg-cyber-blue/5";
+                };
+
+                return (
+                  <>
+                    {/* Directive 1: Navy Escorts */}
+                    <button
+                      disabled={navyDisabled}
+                      onClick={() => onToggleIntervention("navyEscorts")}
+                      className={`p-2 rounded border font-mono transition-all duration-200 select-none flex flex-col justify-center text-left text-[10px] w-full h-[48px] ${getCardStyle(activeInterventions.navyEscorts, navyDisabled)}`}
+                    >
+                      <div className="flex justify-between items-center font-bold w-full">
+                        <span>Deploy Navy Escorts</span>
+                        {activeInterventions.navyEscorts && !navyDisabled && <span className="text-[8.5px] bg-cyber-orange/20 border border-cyber-orange/30 px-1 py-0.2 rounded font-black text-cyber-orange uppercase">ACTIVE</span>}
+                        {navyDisabled && <span className="text-[7.5px] text-gray-500 uppercase">N/A</span>}
+                      </div>
+                      <span className="text-[8px] text-gray-500 mt-0.5 font-sans leading-none block truncate">Operation Sankalp / Shipping Escort</span>
+                    </button>
+
+                    {/* Directive 2: SPR Release */}
+                    <button
+                      disabled={sprDisabled}
+                      onClick={() => onToggleIntervention("sprRelease")}
+                      className={`p-2 rounded border font-mono transition-all duration-200 select-none flex flex-col justify-center text-left text-[10px] w-full h-[48px] ${getCardStyle(activeInterventions.sprRelease, sprDisabled)}`}
+                    >
+                      <div className="flex justify-between items-center font-bold w-full">
+                        <span>Release SPR Reserves</span>
+                        {activeInterventions.sprRelease && !sprDisabled && <span className="text-[8.5px] bg-cyber-orange/20 border border-cyber-orange/30 px-1 py-0.2 rounded font-black text-cyber-orange uppercase">ACTIVE</span>}
+                        {sprDisabled && <span className="text-[7.5px] text-gray-500 uppercase">N/A</span>}
+                      </div>
+                      <span className="text-[8px] text-gray-500 mt-0.5 font-sans leading-none block truncate">Strategic Stock Drawdown</span>
+                    </button>
+
+                    {/* Directive 3: OPEC Negotiation */}
+                    <button
+                      disabled={opecDisabled}
+                      onClick={() => onToggleIntervention("opecNegotiation")}
+                      className={`p-2 rounded border font-mono transition-all duration-200 select-none flex flex-col justify-center text-left text-[10px] w-full h-[48px] ${getCardStyle(activeInterventions.opecNegotiation, opecDisabled)}`}
+                    >
+                      <div className="flex justify-between items-center font-bold w-full">
+                        <span>Bilateral OPEC Negotiation</span>
+                        {activeInterventions.opecNegotiation && !opecDisabled && <span className="text-[8.5px] bg-cyber-orange/20 border border-cyber-orange/30 px-1 py-0.2 rounded font-black text-cyber-orange uppercase">ACTIVE</span>}
+                        {opecDisabled && <span className="text-[7.5px] text-gray-500 uppercase">N/A</span>}
+                      </div>
+                      <span className="text-[8px] text-gray-500 mt-0.5 font-sans leading-none block truncate">Crude Price Premium Mitigation</span>
+                    </button>
+                  </>
+                );
+              })()}
             </div>
           </div>
         </div>

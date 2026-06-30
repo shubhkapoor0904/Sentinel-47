@@ -674,8 +674,10 @@ export default function ScenarioModeller({
                     <span className="text-[9px] font-mono text-gray-500 uppercase font-bold">Quarterly GDP Drag</span>
                     <span className="text-[7.5px] font-mono text-cyber-orange border border-cyber-orange/30 bg-cyber-orange/5 px-1 py-0.5 rounded leading-none">MODELED RANGE</span>
                   </div>
-                  <div className="my-auto flex flex-col justify-center py-1">
-                    <div className={`text-2xl font-bold font-mono tracking-tight text-center ${gdpColor}`}>
+                  
+                  {/* Left-aligned headline, same size as other cards */}
+                  <div className="mt-2 shrink-0">
+                    <div className={`text-lg font-bold font-mono tracking-tight ${gdpColor}`}>
                       {drag === 0 ? (
                         <span>0.00%</span>
                       ) : (
@@ -688,24 +690,23 @@ export default function ScenarioModeller({
                         </>
                       )}
                     </div>
-                    <div className="text-[8.5px] font-mono text-gray-500 mt-1 flex items-center justify-center gap-1.5">
-                      <Info className="w-3.5 h-3.5 text-cyber-blue" strokeWidth={2.5} />
-                      Cascading energy friction drags quarterly economic output
+                    <div className="text-[9px] font-mono text-gray-500 mt-0.5">
+                      Baseline: 0.00% (no drag)
                     </div>
                   </div>
 
-                  {/* GDP Drag Sparkline timeline progression chart */}
-                  <div className="mt-1 pt-1.5 border-t border-cyber-border/20 shrink-0">
+                  {/* Bigger sparkline progression timeline chart */}
+                  <div className="my-auto py-1 flex flex-col justify-center flex-grow">
                     <span className="text-[7px] font-mono text-gray-500 uppercase block tracking-wider mb-1">GDP Impact Timeline (Today → Qtr End)</span>
-                    <div className="h-[42px] w-full bg-[#050814]/65 border border-cyber-border/20 rounded relative overflow-hidden flex items-center justify-center p-1">
-                      <svg viewBox="0 0 200 40" className="w-full h-full">
+                    <div className="h-[95px] w-full bg-[#050814]/65 border border-cyber-border/20 rounded relative overflow-hidden flex items-center justify-center p-1.5">
+                      <svg viewBox="0 0 200 65" className="w-full h-full">
                         {/* Baseline zero line */}
                         <line x1="0" y1="10" x2="200" y2="10" stroke="rgba(255,255,255,0.06)" strokeDasharray="2,2" />
                         
                         {(() => {
-                          const y1 = 10 + Math.min(25, drag * 10);
-                          const y2 = 10 + Math.min(25, drag * 18);
-                          const y3 = 10 + Math.min(25, drag * 26);
+                          const y1 = 10 + Math.min(40, drag * 12);
+                          const y2 = 10 + Math.min(40, drag * 20);
+                          const y3 = 10 + Math.min(40, drag * 28);
                           
                           const points = `10,10 70,${y1} 130,${y2} 190,${y3}`;
                           const lineColor = drag > 0.5 ? "#ef4444" : drag > 0 ? "#f59e0b" : "#10b981";
@@ -728,16 +729,16 @@ export default function ScenarioModeller({
                                 points={points}
                               />
                               {/* Milestones nodes */}
-                              <circle cx="10" cy="10" r="1.8" fill="#10b981" className="shadow-[0_0_4px_#10b981]" />
+                              <circle cx="10" cy="10" r="1.8" fill="#10b981" />
                               <circle cx="70" cy={y1} r="1.8" fill={lineColor} />
                               <circle cx="130" cy={y2} r="1.8" fill={lineColor} />
                               <circle cx="190" cy={y3} r="1.8" fill={lineColor} />
                               
                               {/* Ticks & Labels */}
-                              <text x="10" y="34" textAnchor="middle" className="font-mono text-[6px] fill-gray-500 font-bold">TODAY</text>
-                              <text x="70" y="34" textAnchor="middle" className="font-mono text-[6px] fill-gray-500 font-bold">WK 1</text>
-                              <text x="130" y="34" textAnchor="middle" className="font-mono text-[6px] fill-gray-500 font-bold">WK 2</text>
-                              <text x="190" y="34" textAnchor="middle" className="font-mono text-[6px] fill-gray-500 font-bold">QTR END</text>
+                              <text x="10" y="58" textAnchor="middle" className="font-mono text-[6.5px] fill-gray-500 font-bold">TODAY</text>
+                              <text x="70" y="58" textAnchor="middle" className="font-mono text-[6.5px] fill-gray-500 font-bold">WK 1</text>
+                              <text x="130" y="58" textAnchor="middle" className="font-mono text-[6.5px] fill-gray-500 font-bold">WK 2</text>
+                              <text x="190" y="58" textAnchor="middle" className="font-mono text-[6.5px] fill-gray-500 font-bold">QTR END</text>
                             </>
                           );
                         })()}

@@ -85,6 +85,122 @@ export default function Dashboard() {
     ],
   });
 
+  const [activeInterventions, setActiveInterventions] = useState<{
+    navyEscorts: boolean;
+    sprRelease: boolean;
+    opecNegotiation: boolean;
+  }>({
+    navyEscorts: false,
+    sprRelease: false,
+    opecNegotiation: false,
+  });
+
+  const getAdjustedImpact = (baseImpact: ScenarioImpact) => {
+    if (!baseImpact) return baseImpact;
+    
+    let refineryDrop = baseImpact.refinery_run_rate_drop;
+    let priceDelta = baseImpact.fuel_price_delta;
+    let daysOfCover = baseImpact.days_of_cover;
+    let gdpDrag = baseImpact.gdp_drag;
+    let assumptions = [...baseImpact.assumptions];
+
+    if (activeInterventions.navyEscorts) {
+      refineryDrop = Math.max(0, refineryDrop - 5);
+      priceDelta = Math.max(0, priceDelta - 1.8);
+      gdpDrag = Math.max(0, gdpDrag - 0.12);
+      if (!assumptions.some(a => a.includes("Operation Sankalp"))) {
+        assumptions.push("Directive: Naval escorts (Operation Sankalp) deployed, stabilizing corridor freight rates.");
+      }
+    }
+
+    if (activeInterventions.sprRelease) {
+      refineryDrop = Math.max(0, refineryDrop - 10);
+      priceDelta = Math.max(0, priceDelta - 3.2);
+      gdpDrag = Math.max(0, gdpDrag - 0.22);
+      daysOfCover = Math.min(9.5, daysOfCover + 1.5);
+      if (!assumptions.some(a => a.includes("SPR Reserves released"))) {
+        assumptions.push("Directive: Emergency SPR Reserves released, adding 1.5 days of net cover cushion.");
+      }
+    }
+
+    if (activeInterventions.opecNegotiation) {
+      refineryDrop = Math.max(0, refineryDrop - 3);
+      priceDelta = Math.max(0, priceDelta - 2.5);
+      gdpDrag = Math.max(0, gdpDrag - 0.10);
+      if (!assumptions.some(a => a.includes("OPEC negotiations"))) {
+        assumptions.push("Directive: OPEC negotiations cushion crude price premium by $4/barrel.");
+      }
+    }
+
+    return {
+      refinery_run_rate_drop: refineryDrop,
+      fuel_price_delta: priceDelta,
+      days_of_cover: daysOfCover,
+      gdp_drag: gdpDrag,
+      assumptions
+    };
+  };
+
+  const adjustedImpact = getAdjustedImpact(impact);
+
+  const getAdjustedProcurementOptions = (baseOptions: ProcurementOption[]) => {
+    if (!baseOptions) return baseOptions;
+
+    return baseOptions.map((opt) => {
+      let premium = opt.pricePremium;
+      let transit = opt.transitDays;
+      let congestion = opt.portCongestion;
+      let compatibility = opt.compatibility;
+      let score = opt.overallScore;
+      let reasoning = opt.reasoning;
+
+      // 1. Deploy Navy Escorts
+      if (activeInterventions.navyEscorts) {
+        if (opt.name.includes("Russian Urals") && activeScenarioId === "red_sea_full") {
+          transit = 22;
+          premium = Math.max(-2.8, premium - 0.80);
+          score = Math.min(100, score + 12);
+          reasoning = "INTERVENTION ACTIVE: Naval convoy escort (Operation Sankalp) stabilizes Red Sea transit lanes, shortening Cape reroute delay by 12 days and lowering insurance premiums.";
+        } else if (opt.name.includes("North Sea") && activeScenarioId === "red_sea_full") {
+          transit = 34;
+          premium = Math.max(4.1, premium - 1.00);
+          score = Math.min(100, score + 10);
+          reasoning = "INTERVENTION ACTIVE: Armed escorts secure Suez-bound tankers, saving 10 days of Cape transit detour.";
+        }
+      }
+
+      // 2. Release Emergency SPR Reserves
+      if (activeInterventions.sprRelease) {
+        if (opt.name.includes("Strategic Petroleum Reserve")) {
+          score = 100;
+          reasoning = "INTERVENTION ACTIVE: Coordinated emergency release from Visakhapatnam and Padur is currently injecting crude directly to Jamnagar and domestic refineries.";
+        }
+      }
+
+      // 3. Bilateral OPEC Negotiation
+      if (activeInterventions.opecNegotiation) {
+        if (opt.name.includes("West African") || opt.source.includes("Persian Gulf") || opt.name.includes("Brent")) {
+          premium = Math.max(0.2, premium - 0.90);
+          score = Math.min(100, score + 8);
+          reasoning = "INTERVENTION ACTIVE: Bilateral OPEC negotiations successfully secure term-contract volume pricing, offsetting regional spot market premiums.";
+        }
+      }
+
+      return {
+        ...opt,
+        pricePremium: premium,
+        transitDays: transit,
+        portCongestion: congestion,
+        compatibility,
+        overallScore: score,
+        reasoning
+      };
+    }).sort((a, b) => b.overallScore - a.overallScore);
+  };
+
+  const [procurementOptions, setProcurementOptions] = useState<ProcurementOption[]>([]);
+  const adjustedProcurementOptions = getAdjustedProcurementOptions(procurementOptions);
+
   const [animatedDaysOfCover, setAnimatedDaysOfCover] = useState<number>(9.5);
   const [animatedRefinery, setAnimatedRefinery] = useState<number>(0);
   const [animatedPrice, setAnimatedPrice] = useState<number>(0);
@@ -103,10 +219,10 @@ export default function Dashboard() {
   }, [animatedDaysOfCover, animatedRefinery, animatedPrice, animatedGdp]);
 
   useEffect(() => {
-    const targetDays = impact?.days_of_cover ?? 9.5;
-    const targetRefinery = impact?.refinery_run_rate_drop ?? 0;
-    const targetPrice = impact?.fuel_price_delta ?? 0;
-    const targetGdp = impact?.gdp_drag ?? 0;
+    const targetDays = adjustedImpact?.days_of_cover ?? 9.5;
+    const targetRefinery = adjustedImpact?.refinery_run_rate_drop ?? 0;
+    const targetPrice = adjustedImpact?.fuel_price_delta ?? 0;
+    const targetGdp = adjustedImpact?.gdp_drag ?? 0;
 
     const startDays = animatedDaysRef.current;
     const startRefinery = animatedRefineryRef.current;
@@ -141,9 +257,9 @@ export default function Dashboard() {
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [impact?.days_of_cover, impact?.refinery_run_rate_drop, impact?.fuel_price_delta, impact?.gdp_drag]);
+  }, [adjustedImpact?.days_of_cover, adjustedImpact?.refinery_run_rate_drop, adjustedImpact?.fuel_price_delta, adjustedImpact?.gdp_drag]);
 
-  const [procurementOptions, setProcurementOptions] = useState<ProcurementOption[]>([]);
+
   const [memo, setMemo] = useState<MemoStructure>({
     memoId: "S47-MOPNG-PENDING",
     date: new Date().toLocaleDateString("en-IN"),
@@ -327,18 +443,51 @@ export default function Dashboard() {
 
     // 4. Memo Synthesis Agent
     if (activeImpact && activeProc) {
+      const adjustedActiveImpact = getAdjustedImpact(activeImpact);
+      const adjustedActiveProc = getAdjustedProcurementOptions(activeProc);
       await compileDecisionMemo(
         activeCorridors,
         activeBrent,
         activeSource,
         scenarioName,
         computedLoss,
-        activeImpact,
-        activeProc,
+        adjustedActiveImpact,
+        adjustedActiveProc,
         compilationTime
       );
     }
   };
+
+  // Listen to activeInterventions change to regenerate Executive Briefing Memo
+  useEffect(() => {
+    // Skip if baseline scenario or initial load
+    if (activeScenarioId === "baseline" || Object.keys(corridors).length === 0) return;
+
+    const regenerateMemo = async () => {
+      setIsLoadingMemo(true);
+      const startTime = Date.now();
+      
+      let scenarioName = "Custom Simulation";
+      if (activeScenarioId === "hormuz_50") scenarioName = "Strait of Hormuz 50% Closure";
+      else if (activeScenarioId === "opec_cut") scenarioName = "OPEC+ Emergency Supply Cut";
+      else if (activeScenarioId === "red_sea_full") scenarioName = "Red Sea Full Transit Suspension";
+      else if (activeScenarioId === "replay_2025") scenarioName = "2025 US-Iran Standoff Backtest";
+
+      const compilationTime = 80; // Standard network offset
+      await compileDecisionMemo(
+        corridors,
+        brentPrice,
+        brentSource,
+        scenarioName,
+        activeScenarioId === "custom" ? customCapacityLoss : 0,
+        adjustedImpact,
+        adjustedProcurementOptions,
+        compilationTime
+      );
+    };
+
+    regenerateMemo();
+  }, [activeInterventions]);
 
   const demoActiveRef = useRef(demoActive);
 
@@ -583,10 +732,10 @@ export default function Dashboard() {
   const sprDays = animatedDaysOfCover;
   const sprResilience = (sprDays / 9.5) * 100;
 
-  const runRateDrop = impact?.refinery_run_rate_drop ?? 0;
+  const runRateDrop = animatedRefinery;
   const refineryResilience = 100 - runRateDrop;
 
-  const gdpDragVal = impact?.gdp_drag ?? 0;
+  const gdpDragVal = animatedGdp;
   const gdpResilience = Math.max(0, 100 - (gdpDragVal / 1.5) * 100);
 
   // Methodology generalizes to any import-dependent economy or critical commodity by substituting corridor/reserve/GDP inputs — scoring structure is commodity-agnostic.
@@ -911,7 +1060,7 @@ export default function Dashboard() {
             <ScenarioModeller
               activeScenarioId={activeScenarioId}
               customCapacityLoss={customCapacityLoss}
-              impact={impact}
+              impact={adjustedImpact}
               animatedDaysOfCover={animatedDaysOfCover}
               animatedRefinery={animatedRefinery}
               animatedPrice={animatedPrice}
@@ -919,10 +1068,20 @@ export default function Dashboard() {
               isLoading={isLoadingScenario}
               onScenarioChange={(scId) => {
                 setActiveScenarioId(scId);
+                setActiveInterventions({
+                  navyEscorts: false,
+                  sprRelease: false,
+                  opecNegotiation: false
+                });
                 triggerFullPipeline(scId, customCapacityLoss);
               }}
               onCustomLossChange={(loss) => {
                 setCustomCapacityLoss(loss);
+                setActiveInterventions({
+                  navyEscorts: false,
+                  sprRelease: false,
+                  opecNegotiation: false
+                });
                 triggerFullPipeline("custom", loss);
               }}
             />
@@ -935,7 +1094,7 @@ export default function Dashboard() {
               : "opacity-0 translate-x-8 pointer-events-none scale-95"
           }`}>
             <ProcurementOrchestrator
-              options={procurementOptions}
+              options={adjustedProcurementOptions}
               isLoading={isLoadingProcurement}
               visibleCount={procurementVisibleCount}
             />
@@ -950,8 +1109,11 @@ export default function Dashboard() {
             <ExecutiveMemo
               memo={memo}
               isLoading={isLoadingMemo}
-              gdpDrag={impact.gdp_drag}
+              gdpDrag={adjustedImpact.gdp_drag}
               sprDays={animatedDaysOfCover}
+              activeScenarioId={activeScenarioId}
+              activeInterventions={activeInterventions}
+              onToggleIntervention={(id) => setActiveInterventions(prev => ({ ...prev, [id]: !prev[id] }))}
               onGenerate={() =>
                 triggerFullPipeline(activeScenarioId, customCapacityLoss)
               }
