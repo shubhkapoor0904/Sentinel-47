@@ -1,60 +1,74 @@
-# Implementation Plan - Final UI Polish Pass
+# Implementation Plan - Live Scenario Probability Weighting
 
-We will implement the refinements outlined in prompt.txt:
-1. Improve density of the Quarterly GDP Drag card by adding an SVG timeline/sparkline.
-2. Enhance the SPR chambers to look like tall storage tanks with wavy, shimmering oil levels and staggered capacities.
-3. Pulse the Ripple Effect graph connections and highlight active path weights.
+This plan introduces live risk-weighted scenario probabilities to the preset panel in Module 2, normalized dynamically from Module 1 threat corridor telemetry, alongside a new "WEIGHTED COMPOSITE" scenario blending active risk assessments.
+
+---
+
+## User Review Required
+
+> [!IMPORTANT]
+> **Corridor Probability Mapping**:
+> - `Hormuz 50% Closure` maps to the Strait of Hormuz (`Hormuz`) corridor risk score.
+> - `Red Sea Suspension` maps to the Red Sea (`Red Sea`) corridor risk score.
+> - `OPEC+ Emergency Cut` maps to the Suez Canal (`Suez`) corridor risk score.
+> 
+> **Weight Normalization Guard**:
+> - Weights are computed dynamically: $P_{i} = \text{round}\left(\frac{\text{score}_i}{\sum \text{score}} \times 100\right)\%$.
+> - We adjust the final weight so they always sum to exactly $100\%$.
+> - If live telemetry is unavailable, it falls back to equal weights ($33\%$, $33\%$, $34\%$) labeled `[EST.]`.
 
 ---
 
 ## Proposed Changes
 
-### [Component: Core State and Orchestration]
-
-#### [MODIFY] [page.tsx](file:///d:/et_ai/app/page.tsx)
-- **Synchronized 4-Metric Tweening**: Expand the `useEffect` animation loop to animate all four impact metrics simultaneously over the **10-second** period:
-  - `animatedRefinery` (run-rate drop)
-  - `animatedPrice` (fuel price delta)
-  - `animatedGdp` (GDP drag)
-  - `animatedDaysOfCover` (SPR cover)
-- **Pass Animated Props**: Update props sent to `ScenarioModeller` and `ExecutiveMemo` to include all animated metrics.
-
----
-
-### [Component: Scenario Modeller]
+### [Component Name]
 
 #### [MODIFY] [ScenarioModeller.tsx](file:///d:/et_ai/components/ScenarioModeller.tsx)
-- **Props signature**: Update `ScenarioModellerProps` to accept `animatedRefinery`, `animatedPrice`, and `animatedGdp`.
-- **GDP Sparkline**: Draw a small inline SVG sparkline (`0 0 200 50`) inside the GDP card showing milestones (Today $\rightarrow$ Wk 1 $\rightarrow$ Wk 2 $\rightarrow$ Qtr End) that bends downward proportionally to the animated GDP drag.
-- **SPR Chambers Refinement**:
-  - Increase storage cylinder height to `h-24` and width to `w-9`.
-  - Style them as vertical rectangular-cylindrical storage canisters (`rounded-t-md rounded-b`).
-  - Overlay an SVG flowing sine-wave cap inside the canisters that flows continuously via CSS keyframes.
-  - Stagger baseline fill percentages: Padur (98%), Mangalore (94%), Visakhapatnam (88%), and drain proportionally from these baselines to represent unique chamber reserves.
-- **Ripple Effect Upgrades**:
-  - Add `<animateMotion>` circles that flow along the Bezier connections representing energy shock propagation.
-  - Scale path `strokeWidth` and `opacity` dynamically based on pathway severity (stable vs warning vs critical).
-  - Add inline drop-shadow glows (`drop-shadow`) to active propagation paths.
-  - Inject CSS global keyframes for the wave flow and animated pulses inside a `<style jsx global>` tag.
+- Add rendering logic for the **Probability Weight Badges** beside each active preset scenario (Hormuz, OPEC+, Red Sea).
+- Display a tiny percentage indicator and a mini horizontal loading-bar (3-4px high) under each active preset card.
+- Exclude `Replay: 2025` (`[HISTORICAL]`) and `Custom` (`[MANUAL]`) from weights.
+- Add the **"WEIGHTED COMPOSITE"** scenario selection block at the bottom of the preset list with:
+  - Gold/amber left border (`border-l-amber-500` or custom gold glow).
+  - Small `LIVE` badge indicator.
+  - Subtext/description: *"Expected-value blend of all 3 active scenarios weighted by current corridor risk"*.
+  - Underneath, display the data honesty disclaimer caption: *"Composite weighted by live Module 1 corridor scores — not a forecast, an expected-value operational estimate."*
+- Ensure the point estimates inside the scenario cards continue to be displayed with the $\pm 15\%$ range bounds.
 
----
-
-### [Component: Executive Memo]
-
-#### [MODIFY] [ExecutiveMemo.tsx](file:///d:/et_ai/components/ExecutiveMemo.tsx)
-- Use `sprDays` to display the warning banner in perfect timing sync with the animated reserves.
+#### [MODIFY] [page.tsx](file:///d:/et_ai/app/page.tsx)
+- Calculate normalized probability weights dynamically using active corridor telemetry state:
+  ```typescript
+  const weights = useMemo(() => {
+    const rHormuz = corridors["Hormuz"]?.score;
+    const rRedSea = corridors["Red Sea"]?.score;
+    const rSuez = corridors["Suez"]?.score;
+    
+    if (rHormuz === undefined || rRedSea === undefined || rSuez === undefined) {
+      return { hormuz: 33, redSea: 33, opec: 34, isFallback: true };
+    }
+    
+    const total = rHormuz + rRedSea + rSuez;
+    if (total === 0) {
+      return { hormuz: 33, redSea: 33, opec: 34, isFallback: true };
+    }
+    
+    const wHormuz = Math.round((rHormuz / total) * 100);
+    const wRedSea = Math.round((rRedSea / total) * 100);
+    const wOpec = 100 - wHormuz - wRedSea;
+    return { hormuz: wHormuz, redSea: wRedSea, opec: wOpec, isFallback: false };
+  }, [corridors]);
+  ```
+- Define composite scenario simulation logic. When the `WEIGHTED COMPOSITE` preset is selected:
+  - Calculate `impact` metrics (refinery run-rate drop, fuel price delta, days of cover, GDP drag) as the weighted sum of the 3 presets:
+    - $\text{value}_{\text{composite}} = \frac{w_1 \cdot \text{value}_1 + w_2 \cdot \text{value}_2 + w_3 \cdot \text{value}_3}{100}$
+  - Update states so they animate cleanly over 10 seconds.
+  - Automatically update `activeInterventions` and run memo compilation based on the blended estimates.
 
 ---
 
 ## Verification Plan
 
-### Automated Tests
-- Run `npm run build` to verify compiling safety.
-
 ### Manual Verification
-1. Trigger a disruption preset (e.g. Hormuz 50%).
-2. Verify that:
-   - Refinery, Price, GDP, and SPR metrics all animate in unison over 10 seconds.
-   - The SPR tanks drain smoothly with wavy oil surfaces and slightly staggered percentages (e.g. 98%, 94%, 88% down to target levels).
-   - The GDP card displays the glowing sparkline curving downward dynamically.
-   - The Ripple Effect graph shows glowing thick lines with small glowing pulses flowing along the paths.
+1. Open the dashboard.
+2. Verify that each preset card (Hormuz, OPEC+, Red Sea) displays the correct probability weight badge and matching mini horizontal bar.
+3. Refresh Module 1 data and verify weights dynamically update.
+4. Click **WEIGHTED COMPOSITE** and verify all telemetry counters, caverns, ripple graphs, and procurement options blend and animate correctly.

@@ -1,1 +1,15 @@
-The large white gap between the SPR Directive section and the signature block makes it look like content is missing — a judge will instinctively think "did it cut off?" Tighten this with either a thin horizontal rule + "END OF BRIEF" line above the signature, or just reduce the bottom padding so the signature sits naturally below the last content block rather than floating at the bottom of a half-empty page.
+Refactor the Module 2 preset list into visually distinct categories using color-coded sections (no layout overhaul).
+
+Category 1 — Regional Disruption Scenarios (Hormuz, OPEC+, Red Sea):
+Accent: Orange (#F97316)
+
+Category 2 — User Simulation (Custom Simulator):
+Accent: Blue (#3B82F6)
+
+Category 3 — Historical Validation (Replay: 2025 US-Iran Standoff):
+Accent: Gold/Sepia (#D4A017)
+
+Category 4 — Composite Analysis (Weighted Composite):
+Accent: Cyan/Teal (#06B6D4)
+
+Keep the active preset highlighted with the existing orange active state regardless of category. Preserve all existing functionality and calculations; this is a visual hierarchy improvement only. Also dont want that bar on the left on weight response card and the background tint on those 3 cards too

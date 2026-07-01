@@ -14,5 +14,11 @@
 - [x] Add cryptographic ledger entry hash at the very bottom of the executive memo.
 - [x] Tighten document spacing by inserting an dashed 'END OF BRIEF' divider line and reducing the margins on the signature block and auditing ledger entry.
 - [x] Fix the Security & Speed Agent logic in [ProcurementOrchestrator.tsx](file:///d:/et_ai/components/ProcurementOrchestrator.tsx) so each crude candidate is evaluated independently on its own terms rather than repeating the same SPR conclusion.
+- [x] Add **Live Scenario Probability Weighting** badges and ASCII progress bars to existing active presets (Hormuz, OPEC+, Red Sea) in [ScenarioModeller.tsx](file:///d:/et_ai/components/ScenarioModeller.tsx).
+- [x] Add a **Weighted Composite** simulation preset option that dynamically averages the outputs of the 3 active scenarios based on live threat corridor weights.
+- [x] Integrate dynamic auto-updating when risk scores refresh, and fall back to equal (33%/33%/34%) weights labeled `[EST.]` when risk score data is missing.
+- [x] Display a data honesty disclaimer caption at the bottom of the preset controls panel when the composite preset is active.
+- [x] Fit SPR Command Center cavern heights, margins, and padding within 266px bounds to prevent telemetry text from going out of bounds.
+- [x] Style CUSTOM SIMULATOR with the same capital casing and amber color scheme as REPLAY and WEIGHTED COMPOSITE, and reposition it above the REPLAY card with the slider nested directly beneath it.
 - [x] Verify compile check (`npm run build`).
 - [x] Create walkthrough.md.

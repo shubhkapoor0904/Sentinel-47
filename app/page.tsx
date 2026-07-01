@@ -67,6 +67,26 @@ interface MemoStructure {
 export default function Dashboard() {
   // Global States
   const [corridors, setCorridors] = useState<{ [key: string]: CorridorState }>({});
+  
+  const weights = useMemo(() => {
+    const rHormuz = corridors["Hormuz"]?.score;
+    const rRedSea = corridors["Red Sea"]?.score;
+    const rSuez = corridors["Suez"]?.score;
+    
+    if (rHormuz === undefined || rRedSea === undefined || rSuez === undefined) {
+      return { hormuz: 33, redSea: 33, opec: 34, isFallback: true };
+    }
+    
+    const total = rHormuz + rRedSea + rSuez;
+    if (total === 0) {
+      return { hormuz: 33, redSea: 33, opec: 34, isFallback: true };
+    }
+    
+    const wHormuz = Math.round((rHormuz / total) * 100);
+    const wRedSea = Math.round((rRedSea / total) * 100);
+    const wOpec = 100 - wHormuz - wRedSea;
+    return { hormuz: wHormuz, redSea: wRedSea, opec: wOpec, isFallback: false };
+  }, [corridors]);
   const [signals, setSignals] = useState<GeopoliticalSignal[]>([]);
   const [brentPrice, setBrentPrice] = useState<number>(74.50);
   const [brentSource, setBrentSource] = useState<string>("Estimated");
@@ -332,6 +352,62 @@ export default function Dashboard() {
   const runScenarioSimulation = async (scId: string, customLoss: number, currentPrice: number) => {
     setIsLoadingScenario(true);
     try {
+      if (scId === "weighted_composite") {
+        const [hormuzRes, opecRes, redSeaRes] = await Promise.all([
+          fetch("/api/scenario", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ scenarioId: "hormuz_50", customCapacityLoss: 50, brentPrice: currentPrice })
+          }),
+          fetch("/api/scenario", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ scenarioId: "opec_cut", customCapacityLoss: 20, brentPrice: currentPrice })
+          }),
+          fetch("/api/scenario", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ scenarioId: "red_sea_full", customCapacityLoss: 80, brentPrice: currentPrice })
+          })
+        ]);
+
+        if (hormuzRes.ok && opecRes.ok && redSeaRes.ok) {
+          const [hormuzData, opecData, redSeaData] = await Promise.all([
+            hormuzRes.json(),
+            opecRes.json(),
+            redSeaRes.json()
+          ]);
+
+          const hImpact = hormuzData.impact;
+          const oImpact = opecData.impact;
+          const rImpact = redSeaData.impact;
+
+          const wH = weights.hormuz / 100;
+          const wO = weights.opec / 100;
+          const wR = weights.redSea / 100;
+
+          const blendedRefinery = Math.round((hImpact.refinery_run_rate_drop * wH + oImpact.refinery_run_rate_drop * wO + rImpact.refinery_run_rate_drop * wR) * 10) / 10;
+          const blendedPrice = Math.round((hImpact.fuel_price_delta * wH + oImpact.fuel_price_delta * wO + rImpact.fuel_price_delta * wR) * 10) / 10;
+          const blendedDays = Math.round((hImpact.days_of_cover * wH + oImpact.days_of_cover * wO + rImpact.days_of_cover * wR) * 10) / 10;
+          const blendedGdp = Math.round((hImpact.gdp_drag * wH + oImpact.gdp_drag * wO + rImpact.gdp_drag * wR) * 100) / 100;
+
+          const compositeImpact: ScenarioImpact = {
+            refinery_run_rate_drop: blendedRefinery,
+            fuel_price_delta: blendedPrice,
+            days_of_cover: blendedDays,
+            gdp_drag: blendedGdp,
+            assumptions: [
+              `Expected-value operational estimate based on live corridor scores: Strait of Hormuz (${weights.hormuz}%), Suez Canal (${weights.opec}%), and Red Sea (${weights.redSea}%).`,
+              `Refinery Run Rate Drop of ${blendedRefinery}% is a weighted blend of individual scenario impacts (${hImpact.refinery_run_rate_drop}%, ${oImpact.refinery_run_rate_drop}%, and ${rImpact.refinery_run_rate_drop}%).`,
+              `Fuel Price Delta is +₹${blendedPrice}/L, and SPR remaining capacity is modeled at ${blendedDays} days.`
+            ]
+          };
+
+          setImpact(compositeImpact);
+          return compositeImpact;
+        }
+      }
+
       const res = await fetch("/api/scenario", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -448,6 +524,9 @@ export default function Dashboard() {
     } else if (scId === "replay_2025") {
       computedLoss = 40;
       scenarioName = "2025 US-Iran Standoff Backtest";
+    } else if (scId === "weighted_composite") {
+      computedLoss = Math.round(50 * (weights.hormuz / 100) + 20 * (weights.opec / 100) + 80 * (weights.redSea / 100));
+      scenarioName = "Weighted Composite Simulation";
     }
 
     // 2. Modeler Agent
@@ -476,6 +555,13 @@ export default function Dashboard() {
     }
   };
 
+  // Auto-update composite scenario when weights change
+  useEffect(() => {
+    if (activeScenarioId === "weighted_composite") {
+      triggerFullPipeline("weighted_composite", customCapacityLoss);
+    }
+  }, [weights]);
+
   // Listen to activeInterventions change to regenerate Executive Briefing Memo
   useEffect(() => {
     // Skip if baseline scenario or initial load
@@ -483,13 +569,26 @@ export default function Dashboard() {
 
     const regenerateMemo = async () => {
       setIsLoadingMemo(true);
-      const startTime = Date.now();
       
       let scenarioName = "Custom Simulation";
-      if (activeScenarioId === "hormuz_50") scenarioName = "Strait of Hormuz 50% Closure";
-      else if (activeScenarioId === "opec_cut") scenarioName = "OPEC+ Emergency Supply Cut";
-      else if (activeScenarioId === "red_sea_full") scenarioName = "Red Sea Full Transit Suspension";
-      else if (activeScenarioId === "replay_2025") scenarioName = "2025 US-Iran Standoff Backtest";
+      let computedLoss = activeScenarioId === "custom" ? customCapacityLoss : 0;
+      
+      if (activeScenarioId === "hormuz_50") {
+        computedLoss = 50;
+        scenarioName = "Strait of Hormuz 50% Closure";
+      } else if (activeScenarioId === "opec_cut") {
+        computedLoss = 20;
+        scenarioName = "OPEC+ Emergency Supply Cut";
+      } else if (activeScenarioId === "red_sea_full") {
+        computedLoss = 80;
+        scenarioName = "Red Sea Full Transit Suspension";
+      } else if (activeScenarioId === "replay_2025") {
+        computedLoss = 40;
+        scenarioName = "2025 US-Iran Standoff Backtest";
+      } else if (activeScenarioId === "weighted_composite") {
+        computedLoss = Math.round(50 * (weights.hormuz / 100) + 20 * (weights.opec / 100) + 80 * (weights.redSea / 100));
+        scenarioName = "Weighted Composite Simulation";
+      }
 
       const compilationTime = 80; // Standard network offset
       await compileDecisionMemo(
@@ -497,7 +596,7 @@ export default function Dashboard() {
         brentPrice,
         brentSource,
         scenarioName,
-        activeScenarioId === "custom" ? customCapacityLoss : 0,
+        computedLoss,
         adjustedImpact,
         adjustedProcurementOptions,
         compilationTime
@@ -1084,6 +1183,7 @@ export default function Dashboard() {
               animatedPrice={animatedPrice}
               animatedGdp={animatedGdp}
               isLoading={isLoadingScenario}
+              weights={weights}
               onScenarioChange={(scId) => {
                 setActiveScenarioId(scId);
                 setActiveInterventions({

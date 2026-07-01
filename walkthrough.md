@@ -1,6 +1,6 @@
-# Walkthrough - Ministerial Response Interventions
+# Walkthrough - Ministerial Response Interventions & Live Scenario Probability Weighting
 
-I have successfully designed, built, and integrated the **Ministerial Response Interventions** feature into the Sentinel-47 command center dashboard!
+I have successfully designed, built, and integrated the **Ministerial Response Interventions** and **Live Scenario Probability Weighting** features into the Sentinel-47 command center dashboard!
 
 ---
 
@@ -94,6 +94,66 @@ The overall consensus conclusion is clean, consolidated, and displayed once in t
 
 ---
 
+## 📊 Live Scenario Probability Weighting
+
+Introduced live, risk-weighted scenario attributes to the Module 2 Preset Panel:
+1. **Probability Weight Badges**: Added small right-aligned weights and dynamic ASCII progress bars inside each active preset card (Hormuz, OPEC+, Red Sea) in [ScenarioModeller.tsx](file:///d:/et_ai/components/ScenarioModeller.tsx):
+   - Hormuz: `[25%] ██░░░░░░`
+   - OPEC+ Cut: `[31%] ███░░░░░`
+   - Red Sea: `[44%] ████░░░░`
+   - Replay: `[HISTORICAL]`
+   - Custom: `[MANUAL]`
+2. **Weighted Composite Scenario**: Appended the new `"WEIGHTED COMPOSITE"` preset to the bottom of the presets list. It computes expected-value averages across the 3 active presets, blending refinery drops, pricing shock curves, remaining cover, and GDP drags. It is visually distinguished by a gold/amber left border.
+3. **Data Honesty Disclaimer**: Swapped the warning notice with a customized, amber data honesty disclaimer at the bottom of the panel whenever the composite preset is active: *"Composite weighted by live Module 1 corridor scores — not a forecast, an expected-value operational estimate."*
+4. **Dynamic Telemetry Synchronization**: Linked weights to a React `useEffect` hook in [page.tsx](file:///d:/et_ai/app/page.tsx). When risk values refresh, probability weights re-normalize instantly. If the Composite scenario is active, the whole simulation recalculates automatically. Fallback weights (33%/33%/34%) labeled `[EST.]` protect against API offline states.
+
+---
+
+## 📐 HUD Layout & Custom Simulator Refinements
+
+Optimized the Module 2 Disruption Scenario Modeller card proportions and layout ordering:
+1. **SPR Telemetry Height Fit**: Solved the out-of-bounds telemetry overlap on the `Strategic Petroleum Reserve Command Center` card. Reduced cylinder visual graphics heights from `74px` to `52px`, decreased cavern padding to `p-1 pb-1.5`, and card padding to `p-3 pt-2 pb-2.5`. This fits all text, cavern waves, and the National Reserve Summary exactly within the `266px` grid limits.
+2. **CUSTOM SIMULATOR Casing & Color Scheme**: Capitalized the custom preset text to `CUSTOM SIMULATOR` and updated both active and inactive styles to match the amber/gold theme of `REPLAY` and `WEIGHTED COMPOSITE` instead of standard orange.
+3. **Repositioned Custom Simulator & Embedded Slider**: Repositioned the `CUSTOM SIMULATOR` preset directly above the `REPLAY` card. The custom capacity loss range slider is now nested immediately below the active card button using a React Fragment sibling block. This removes duplicate slider blocks at the bottom of the presets panel, reclaiming valuable vertical space.
+
+---
+
+## 🎨 Visual Refinement: Categorized Presets & Theme Uniformity (Module 2)
+
+Refactored the Disruption Scenario Modeller presets on the left control panel into four visually distinct, color-coded categories with glowing indicators, conforming to premium styling and a high-fidelity visual hierarchy:
+
+1. **Category 1 — Regional Disruption Scenarios (Hormuz, OPEC+, Red Sea)**
+   - Accent color: Orange (`#F97316`)
+   - Visual: Pulsing orange indicator marker with a matching glow.
+
+2. **Category 2 — User Simulation (Custom Simulator)**
+   - Accent color: Blue (`#3B82F6`)
+   - Visual: Blue indicator marker with a matching glow.
+   - Custom capacity loss slider remains embedded directly below the active card button.
+
+3. **Category 3 — Historical Validation (Replay: 2025 US-Iran Standoff)**
+   - Accent color: Gold/Sepia (`#D4A017`)
+   - Visual: Gold/Sepia indicator marker with a matching glow.
+
+4. **Category 4 — Composite Analysis (Weighted Composite)**
+   - Accent color: Cyan/Teal (`#06B6D4`)
+   - Visual: Cyan/Teal indicator marker with a matching glow.
+   - Custom `LIVE` badge updated to Cyan/Teal (`#06B6D4`) matching the category's theme.
+
+### Styling Enhancements:
+- **Clean Inactive States**: Stripped the amber/gold background tints (`bg-[#1f1a10]`) from Custom Simulator, Historical Replay, and Weighted Composite when inactive. All inactive buttons now share a uniform dark background (`bg-[#0b0f19]/40`), improving visual consistency.
+- **Consistent Active State**: Guaranteed that the active preset card highlights in standard orange (`bg-cyber-orange/15 border-cyber-orange text-cyber-orange`) across all categories, making the active selection immediately clear.
+- **Removed Left Border Bar**: Removed the `border-l-[3px]` amber highlight bar from the weighted composite card, making it visually congruent with other preset buttons.
+- **Category Hover States**: Added distinct hover-border colors matching each category's accent color.
+- **Card Height Fix (Overlap Prevention)**: Swapped the fixed `h-full` class with `min-h-full h-auto` on the outer `cyber-panel` container in `ScenarioModeller.tsx`. This dynamically adjusts the card container height to completely fit the Stated Assumptions Panel, preventing border overlapping/cropping.
+- **Question Mark Icon Removal**: Removed the pulsing `HelpCircle` icon from the "Model Formulation & Underlying Assumptions" header section.
+- **Info Icon Integration**: Placed standard visual information `Info` ("i") icons in places where they are needed:
+  1. Next to the title in the **Model Formulation & Underlying Assumptions** panel. Configured with a `shrink-0` class to prevent flex-shrinking to `0px` under space constraints, and set a downward (`top-full`) hover tooltip to avoid clipping by the parent's `overflow-hidden` rule.
+  2. Next to the titles in the **Refinery Run Rate**, **Fuel Price Shock**, **Strategic Petroleum Reserve Command Center**, and **Quarterly GDP Drag** metric cards.
+  3. Added responsive hover/interactive tooltips to each of these metric card titles to clarify their respective operational and macroeconomic meanings.
+
+---
+
 ## 🧪 Verification & Environmental Notice
 
 > [!NOTE]
@@ -101,3 +161,6 @@ The overall consensus conclusion is clean, consolidated, and displayed once in t
 > ```bash
 > npm run build
 > ```
+
+
+

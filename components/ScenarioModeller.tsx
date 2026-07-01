@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { AlertOctagon, HelpCircle, Info, Sliders } from "lucide-react";
+import { AlertOctagon, Info, Sliders } from "lucide-react";
 import AnimatedNumber from "./AnimatedNumber";
 
 interface ScenarioImpact {
@@ -23,6 +23,7 @@ interface ScenarioModellerProps {
   isLoading: boolean;
   onScenarioChange: (scenarioId: string) => void;
   onCustomLossChange: (loss: number) => void;
+  weights: { hormuz: number; redSea: number; opec: number; isFallback: boolean };
 }
 
 export default function ScenarioModeller({
@@ -36,6 +37,7 @@ export default function ScenarioModeller({
   isLoading,
   onScenarioChange,
   onCustomLossChange,
+  weights,
 }: ScenarioModellerProps) {
   const [hoveredAssumption, setHoveredAssumption] = useState<number | null>(null);
 
@@ -222,19 +224,118 @@ export default function ScenarioModeller({
       description: "100% rerouting of Suez transit traffic",
     },
     {
+      id: "custom",
+      label: "CUSTOM SIMULATOR",
+      description: "Manual capacity drop slider control",
+    },
+    {
       id: "replay_2025",
       label: "REPLAY: 2025 US-IRAN STANDOFF",
       description: "Time-machine historical backtest mode",
     },
     {
-      id: "custom",
-      label: "Custom Simulator",
-      description: "Manual capacity drop slider control",
+      id: "weighted_composite",
+      label: "WEIGHTED COMPOSITE",
+      description: "Expected-value blend of all 3 active scenarios weighted by current corridor risk",
     },
   ];
 
+  const getPresetBadgeAndWeight = (id: string) => {
+    if (id === "replay_2025") return { text: "[HISTORICAL]", pct: 0 };
+    if (id === "custom") return { text: "[MANUAL]", pct: 0 };
+    if (id === "weighted_composite") return { text: "", pct: 0 };
+    
+    let pct = 33;
+    if (id === "hormuz_50") pct = weights.hormuz;
+    else if (id === "opec_cut") pct = weights.opec;
+    else if (id === "red_sea_full") pct = weights.redSea;
+    
+    const label = weights.isFallback ? `${pct}% EST.` : `${pct}%`;
+    const segments = 8;
+    const filled = Math.round((pct / 100) * segments);
+    const blocks = "█".repeat(filled) + "░".repeat(Math.max(0, segments - filled));
+    
+    return { text: `[${label}] ${blocks}`, pct };
+  };
+
+  const renderPresetButton = (presetId: string, accentHex: string, hoverBorderClass: string) => {
+    const preset = presets.find((p) => p.id === presetId);
+    if (!preset) return null;
+
+    const isActive = activeScenarioId === preset.id;
+    const isWeighted = preset.id === "weighted_composite";
+    const isCustom = preset.id === "custom";
+    const badge = getPresetBadgeAndWeight(preset.id);
+
+    return (
+      <React.Fragment key={preset.id}>
+        <button
+          onClick={() => onScenarioChange(preset.id)}
+          className={`relative overflow-hidden text-left p-2.5 rounded border transition-all text-xs flex flex-col justify-between h-[58px] w-full ${
+            isActive
+              ? "bg-cyber-orange/15 border-cyber-orange text-cyber-orange shadow-[0_0_10px_rgba(249,115,22,0.15)]"
+              : `bg-[#0b0f19]/40 border-cyber-border text-gray-300 hover:bg-[#0b0f19]/80 ${hoverBorderClass}`
+          }`}
+        >
+          <div className="flex justify-between items-center w-full">
+            <span className="font-mono font-bold flex items-center gap-1.5">
+              {preset.label}
+              {isWeighted && (
+                <span className="text-[7.5px] bg-cyber-blue/20 border border-cyber-blue/35 px-1 py-0.2 rounded font-black text-cyber-blue uppercase tracking-widest animate-pulse leading-none">
+                  LIVE
+                </span>
+              )}
+            </span>
+            {badge.text && (
+              <span className="font-mono text-[9px] font-bold text-gray-500 tracking-wider">
+                {badge.text}
+              </span>
+            )}
+          </div>
+          <span className="text-[9px] text-gray-500 line-clamp-1">{preset.description}</span>
+          
+          {/* Mini horizontal loading-bar at the bottom */}
+          {badge.pct > 0 && (
+            <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-cyber-border/40">
+              <div 
+                className={`h-full transition-all duration-500 ${
+                  isActive ? "bg-cyber-orange" : "bg-cyber-orange/60"
+                }`}
+                style={{ width: `${badge.pct}%` }}
+              />
+            </div>
+          )}
+        </button>
+
+        {/* Embed Custom Slider immediately below CUSTOM SIMULATOR when active */}
+        {isCustom && isActive && (
+          <div className="bg-[#1f1a10]/20 border border-amber-500/30 p-3 rounded flex flex-col gap-1.5 shrink-0 animate-fadeIn mt-1 mb-1">
+            <div className="flex justify-between items-center text-[10px] font-mono">
+              <span className="text-amber-500/80">Custom Corridor Disruption Loss</span>
+              <span className="text-amber-400 font-bold">{customCapacityLoss}%</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              step="5"
+              value={customCapacityLoss}
+              onChange={(e) => onCustomLossChange(Number(e.target.value))}
+              className="w-full h-1 bg-amber-900 rounded appearance-none cursor-pointer accent-amber-500"
+            />
+            <div className="flex justify-between text-[8px] text-amber-600/60 font-mono">
+              <span>0% (stable)</span>
+              <span>50%</span>
+              <span>100%</span>
+            </div>
+          </div>
+        )}
+      </React.Fragment>
+    );
+  };
+
   return (
-    <div className="cyber-panel p-6 rounded-lg border border-cyber-border h-full flex flex-col gap-6 select-none">
+    <div className="cyber-panel p-6 rounded-lg border border-cyber-border min-h-full h-auto flex flex-col gap-6 select-none">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-cyber-border pb-4">
         <div className="flex items-center gap-3">
@@ -261,68 +362,91 @@ export default function ScenarioModeller({
             <span className="text-[10px] uppercase font-mono text-gray-500 block font-bold">
               Simulation Shock Presets
             </span>
-            <div className="flex flex-col gap-2">
-              {presets.map((preset) => {
-                const isActive = activeScenarioId === preset.id;
-                const isReplay = preset.id === "replay_2025";
-                return (
-                  <button
-                    key={preset.id}
-                    onClick={() => onScenarioChange(preset.id)}
-                    className={`text-left p-2.5 rounded border transition-all text-xs flex flex-col justify-between h-[58px] ${
-                      isActive
-                        ? isReplay
-                          ? "bg-amber-500/15 border-amber-500 text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.2)]"
-                          : "bg-cyber-orange/15 border-cyber-orange text-cyber-orange shadow-[0_0_10px_rgba(249,115,22,0.15)]"
-                        : isReplay
-                        ? "bg-[#1f1a10]/30 border-amber-900/40 text-amber-500/80 hover:bg-[#2c2210]/60"
-                        : "bg-[#0b0f19]/40 border-cyber-border text-gray-300 hover:bg-[#0b0f19]/80"
-                    }`}
-                  >
-                    <span className="font-mono font-bold">{preset.label}</span>
-                    <span className="text-[9px] text-gray-500 line-clamp-1">{preset.description}</span>
-                  </button>
-                );
-              })}
+            <div className="flex flex-col gap-3.5">
+              
+              {/* Category 1 — Regional Disruption Scenarios */}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-1.5 border-b border-[#F97316]/15 pb-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#F97316] shadow-[0_0_6px_rgba(249,115,22,0.6)] animate-pulse" />
+                  <span className="text-[9px] uppercase font-mono font-bold text-[#F97316] tracking-wider">
+                    Regional Disruption Scenarios
+                  </span>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  {renderPresetButton("hormuz_50", "#F97316", "hover:border-[#F97316]/50 hover:text-white")}
+                  {renderPresetButton("opec_cut", "#F97316", "hover:border-[#F97316]/50 hover:text-white")}
+                  {renderPresetButton("red_sea_full", "#F97316", "hover:border-[#F97316]/50 hover:text-white")}
+                </div>
+              </div>
+
+              {/* Category 2 — User Simulation */}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-1.5 border-b border-[#3B82F6]/15 pb-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#3B82F6] shadow-[0_0_6px_rgba(59,130,246,0.6)]" />
+                  <span className="text-[9px] uppercase font-mono font-bold text-[#3B82F6] tracking-wider">
+                    User Simulation
+                  </span>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  {renderPresetButton("custom", "#3B82F6", "hover:border-[#3B82F6]/50 hover:text-white")}
+                </div>
+              </div>
+
+              {/* Category 3 — Historical Validation */}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-1.5 border-b border-[#D4A017]/15 pb-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#D4A017] shadow-[0_0_6px_rgba(212,160,23,0.6)]" />
+                  <span className="text-[9px] uppercase font-mono font-bold text-[#D4A017] tracking-wider">
+                    Historical Validation
+                  </span>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  {renderPresetButton("replay_2025", "#D4A017", "hover:border-[#D4A017]/50 hover:text-white")}
+                </div>
+              </div>
+
+              {/* Category 4 — Composite Analysis */}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-1.5 border-b border-[#06B6D4]/15 pb-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#06B6D4] shadow-[0_0_6px_rgba(6,182,212,0.6)]" />
+                  <span className="text-[9px] uppercase font-mono font-bold text-[#06B6D4] tracking-wider">
+                    Composite Analysis
+                  </span>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  {renderPresetButton("weighted_composite", "#06B6D4", "hover:border-[#06B6D4]/50 hover:text-white")}
+                </div>
+              </div>
+
             </div>
           </div>
 
-          {/* Custom Slider */}
-          {activeScenarioId === "custom" && (
-            <div className="bg-[#0b0f19]/40 border border-cyber-border p-4 rounded flex flex-col gap-2 shrink-0">
-              <div className="flex justify-between items-center text-xs font-mono">
-                <span className="text-gray-400">Custom Corridor Disruption Loss</span>
-                <span className="text-cyber-orange font-bold">{customCapacityLoss}%</span>
+          {/* Warning Notice / Data Honesty Caption */}
+          {activeScenarioId === "weighted_composite" ? (
+            <div className="flex items-start gap-2.5 bg-amber-500/5 border border-amber-500/20 p-3 rounded shrink-0">
+              <Info className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+              <div>
+                <span className="text-[10px] uppercase font-mono text-amber-400 block font-bold">
+                  MODELED SCENARIO ANALYSIS
+                </span>
+                <p className="font-sans text-[10px] text-gray-400 mt-1 leading-relaxed text-justify">
+                  Composite weighted by live Module 1 corridor scores — not a forecast, an expected-value operational estimate.
+                </p>
               </div>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                step="5"
-                value={customCapacityLoss}
-                onChange={(e) => onCustomLossChange(Number(e.target.value))}
-                className="w-full h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-cyber-orange animate-pulse"
-              />
-              <div className="flex justify-between text-[9px] text-gray-600 font-mono">
-                <span>0% (stable)</span>
-                <span>50%</span>
-                <span>100% (total suspension)</span>
+            </div>
+          ) : (
+            <div className="flex items-start gap-2.5 bg-cyber-red/5 border border-cyber-red/20 p-3 rounded shrink-0">
+              <AlertOctagon className="w-4 h-4 text-cyber-red shrink-0 mt-0.5" />
+              <div>
+                <span className="text-[10px] uppercase font-mono text-cyber-red block font-bold">
+                  MODELED SCENARIO ANALYSIS
+                </span>
+                <p className="font-sans text-[10px] text-gray-400 mt-1 leading-relaxed text-justify">
+                  This is a simulation dashboard. Telemetry metrics show hypothetical stresses on national procurement rates.
+                </p>
               </div>
             </div>
           )}
-
-          {/* Warning Notice */}
-          <div className="flex items-start gap-2.5 bg-cyber-red/5 border border-cyber-red/20 p-3 rounded shrink-0">
-            <AlertOctagon className="w-4 h-4 text-cyber-red shrink-0 mt-0.5" />
-            <div>
-              <span className="text-[10px] uppercase font-mono text-cyber-red block font-bold">
-                MODELED SCENARIO ANALYSIS
-              </span>
-              <span className="text-[10px] text-gray-400 leading-normal">
-                Figures represent modeled stress estimates and operational bounds relative to India's ~9.5 day strategic reserve base.
-              </span>
-            </div>
-          </div>
         </div>
 
         {/* Right Side: Before / After Metrics Grid (col-span-2) */}
@@ -352,7 +476,15 @@ export default function ScenarioModeller({
               return (
                 <div className="bg-[#0b0f19]/50 border border-cyber-border p-3.5 rounded flex flex-col justify-between h-[125px]">
                   <div className="flex justify-between items-center">
-                    <span className="text-[9px] font-mono text-gray-500 uppercase font-bold">Refinery Run Rate</span>
+                    <span className="text-[9px] font-mono text-gray-500 uppercase font-bold flex items-center gap-1">
+                      Refinery Run Rate
+                      <span className="group relative cursor-help">
+                        <Info className="w-3 h-3 text-gray-500 hover:text-cyber-blue transition-colors" />
+                        <span className="absolute bottom-full left-0 mb-1.5 hidden group-hover:block w-[180px] bg-[#070b13] border border-cyber-border rounded p-2 text-[8.5px] text-gray-400 font-sans leading-normal normal-case z-30 shadow-2xl">
+                          Refinery utilization rate relative to full capacity under active disruptions.
+                        </span>
+                      </span>
+                    </span>
                     <span className="text-[7.5px] font-mono text-cyber-orange border border-cyber-orange/30 bg-cyber-orange/5 px-1 py-0.5 rounded leading-none">MODELED RANGE</span>
                   </div>
                   <div>
@@ -422,7 +554,15 @@ export default function ScenarioModeller({
               return (
                 <div className="bg-[#0b0f19]/50 border border-cyber-border p-3.5 rounded flex flex-col justify-between h-[125px]">
                   <div className="flex justify-between items-center">
-                    <span className="text-[9px] font-mono text-gray-500 uppercase font-bold">Fuel Price Shock</span>
+                    <span className="text-[9px] font-mono text-gray-500 uppercase font-bold flex items-center gap-1">
+                      Fuel Price Shock
+                      <span className="group relative cursor-help">
+                        <Info className="w-3 h-3 text-gray-500 hover:text-cyber-blue transition-colors" />
+                        <span className="absolute bottom-full left-0 mb-1.5 hidden group-hover:block w-[180px] bg-[#070b13] border border-cyber-border rounded p-2 text-[8.5px] text-gray-400 font-sans leading-normal normal-case z-30 shadow-2xl">
+                          Simulated change in local retail fuel pricing due to supply shock.
+                        </span>
+                      </span>
+                    </span>
                     <span className="text-[7.5px] font-mono text-cyber-orange border border-cyber-orange/30 bg-cyber-orange/5 px-1 py-0.5 rounded leading-none">MODELED RANGE</span>
                   </div>
                   <div>
@@ -553,27 +693,33 @@ export default function ScenarioModeller({
               ];
 
               return (
-                <div className="bg-[#0b0f19]/50 border border-cyber-border p-3.5 rounded flex flex-col justify-between h-[266px]">
-                  {/* Card Header */}
+                <div className="bg-[#0b0f19]/50 border border-cyber-border p-3 pt-2 pb-2.5 rounded flex flex-col justify-between h-[266px]">
+                   {/* Card Header */}
                   <div className="flex justify-between items-center border-b border-cyber-border/40 pb-1.5 shrink-0">
                     <span className="text-[9px] font-mono text-cyber-orange uppercase font-bold flex items-center gap-1.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-cyber-orange animate-pulse" />
                       Strategic Petroleum Reserve Command Center
+                      <span className="group relative cursor-help">
+                        <Info className="w-3 h-3 text-cyber-orange/60 hover:text-cyber-orange transition-colors" />
+                        <span className="absolute bottom-full left-0 mb-1.5 hidden group-hover:block w-[200px] bg-[#070b13] border border-cyber-border rounded p-2 text-[8.5px] text-gray-400 font-sans leading-normal normal-case z-30 shadow-2xl">
+                          Drawdown status and cover telemetry for the Visakhapatnam, Mangalore, and Padur SPR caverns.
+                        </span>
+                      </span>
                     </span>
                     <span className="text-[7.5px] font-mono text-gray-500 uppercase">Live Cavern Telemetry</span>
                   </div>
 
                   {/* Caverns Row */}
-                  <div className="grid grid-cols-3 gap-2 my-2 flex-1 items-center">
+                  <div className="grid grid-cols-3 gap-2 my-1 flex-1 items-center">
                     {caverns.map((cav) => (
-                      <div key={cav.name} className={`flex flex-col items-center border ${cav.conf.border} bg-slate-955/20 p-1.5 rounded font-mono text-center`}>
+                      <div key={cav.name} className={`flex flex-col items-center border ${cav.conf.border} bg-slate-955/20 p-1 pb-1.5 rounded font-mono text-center`}>
                         <span className="text-[7.5px] font-bold text-gray-300 uppercase tracking-wide truncate max-w-full">
                           {cav.name}
                         </span>
                         <span className="text-[7px] text-gray-500 leading-none">Share: {cav.share}</span>
                         
                         {/* Cylinder Graphic - Taller rectangular storage chamber design */}
-                        <div className="relative w-9 h-[74px] bg-slate-950/70 border border-cyber-border/25 rounded-t-md rounded-b shadow-[inset_0_2px_8px_rgba(0,0,0,0.9)] overflow-hidden my-1.5 flex flex-col justify-end">
+                        <div className="relative w-9 h-[52px] bg-slate-950/70 border border-cyber-border/25 rounded-t-md rounded-b shadow-[inset_0_2px_8px_rgba(0,0,0,0.9)] overflow-hidden my-1 flex flex-col justify-end">
                           {/* Liquid Level */}
                           <div 
                             className={`w-full bg-gradient-to-t ${cav.conf.gradient} opacity-75`}
@@ -613,7 +759,7 @@ export default function ScenarioModeller({
                         <span className="text-[7px] text-gray-500 font-bold leading-none mt-0.5">
                           -{cav.draw.toFixed(2)} Mmbpd
                         </span>
-                        <span className={`text-[6.5px] font-extrabold border rounded px-1 mt-1 leading-normal uppercase ${cav.conf.badgeClass}`}>
+                        <span className={`text-[6.5px] font-extrabold border rounded px-1 mt-0.5 leading-normal uppercase ${cav.conf.badgeClass}`}>
                           {cav.conf.status}
                         </span>
                       </div>
@@ -671,7 +817,15 @@ export default function ScenarioModeller({
               return (
                 <div className="bg-[#0b0f19]/50 border border-cyber-border p-3.5 rounded flex flex-col justify-between h-[266px]">
                   <div className="flex justify-between items-center border-b border-cyber-border/40 pb-1.5 shrink-0">
-                    <span className="text-[9px] font-mono text-gray-500 uppercase font-bold">Quarterly GDP Drag</span>
+                    <span className="text-[9px] font-mono text-gray-500 uppercase font-bold flex items-center gap-1">
+                      Quarterly GDP Drag
+                      <span className="group relative cursor-help">
+                        <Info className="w-3 h-3 text-gray-500 hover:text-cyber-blue transition-colors" />
+                        <span className="absolute bottom-full left-0 mb-1.5 hidden group-hover:block w-[180px] bg-[#070b13] border border-cyber-border rounded p-2 text-[8.5px] text-gray-400 font-sans leading-normal normal-case z-30 shadow-2xl">
+                          Macroeconomic friction drag on quarterly Gross Domestic Product growth.
+                        </span>
+                      </span>
+                    </span>
                     <span className="text-[7.5px] font-mono text-cyber-orange border border-cyber-orange/30 bg-cyber-orange/5 px-1 py-0.5 rounded leading-none">MODELED RANGE</span>
                   </div>
                   
@@ -944,7 +1098,12 @@ export default function ScenarioModeller({
       <div className="border border-cyber-border/80 rounded bg-[#070b13] flex flex-col overflow-hidden shrink-0">
         <div className="bg-[#0b0f19] px-4 py-2 border-b border-cyber-border flex items-center justify-between">
           <span className="text-[10px] font-mono text-gray-400 uppercase font-bold flex items-center gap-1.5">
-            <HelpCircle className="w-3.5 h-3.5 text-cyber-blue animate-pulse" />
+            <span className="group relative cursor-help flex items-center shrink-0">
+              <Info className="w-3.5 h-3.5 text-cyber-blue shrink-0 hover:text-white transition-colors" />
+              <span className="absolute top-full left-0 mt-1.5 hidden group-hover:block w-[240px] bg-[#070b13] border border-cyber-border rounded p-2 text-[8.5px] text-gray-400 font-sans leading-normal normal-case z-30 shadow-2xl">
+                Geopolitical stress-testing rules and assumptions compiled from operational validation guidelines.
+              </span>
+            </span>
             Model Formulation & Underlying Assumptions (Interactive)
           </span>
           <span className="text-[9px] text-gray-500 font-mono">HOVER / CLICK TO INSPECT JUSTIFICATIONS</span>
