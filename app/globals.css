@@ -123,8 +123,8 @@ body {
     display: none !important;
   }
 
-  /* Hide all other view containers that are not the memo document container */
-  .absolute:not([id="printable-memo-document"]):not([className*="font-sans"]) {
+  /* Hide all print-hidden elements */
+  .print\:hidden {
     display: none !important;
   }
 

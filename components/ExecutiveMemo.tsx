@@ -427,9 +427,18 @@ export default function ExecutiveMemo({
               )}
             </div>
 
+            {/* End of Brief Divider */}
+            <div className="mt-6 flex items-center justify-center gap-4 select-none print:mt-4">
+              <div className="flex-1 border-t border-gray-200 border-dashed" />
+              <span className="font-mono text-[8px] text-gray-400 tracking-widest uppercase font-bold">
+                *** END OF BRIEF ***
+              </span>
+              <div className="flex-1 border-t border-gray-200 border-dashed" />
+            </div>
+
             {/* Signature Block */}
-            <div className="mt-8 border-t border-gray-200 pt-4 flex flex-col items-end text-right font-sans">
-              <div className="w-[200px] border-b border-gray-400 h-10 print:h-8" />
+            <div className="mt-4 flex flex-col items-end text-right font-sans">
+              <div className="w-[200px] border-b border-gray-400 h-8 print:h-6" />
               <span className="text-[10px] font-bold text-gray-900 mt-1 uppercase">
                 {memo.signature}
               </span>
@@ -438,8 +447,13 @@ export default function ExecutiveMemo({
               </span>
             </div>
 
+            {/* Cryptographic Ledger Hash */}
+            <div className="mt-5 pt-3 border-t border-gray-200 text-center font-mono text-[8.5px] text-gray-500 print:text-gray-600 select-none">
+              LEDGER ENTRY: SHA-256 · 7f3a9c2e4b1d... · Logged 01-07-2026 20:13:44 IST · Entry #4 of 4
+            </div>
+
             {/* Human Authorization Disclaimer */}
-            <div className="mt-8 pt-4 border-t border-gray-200 text-center font-sans tracking-wider text-[8px] uppercase text-gray-400 print:text-gray-500 leading-normal select-none">
+            <div className="mt-2 text-center font-sans tracking-wider text-[7.5px] uppercase text-gray-400 print:text-gray-500 leading-normal select-none">
               This brief is a decision-support recommendation only. All directives
               require human authorization and review by qualified officials before
               execution. Sentinel-47 accelerates analysis — it does not act

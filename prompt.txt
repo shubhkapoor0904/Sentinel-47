@@ -1,12 +1,1 @@
-Response Interventions should not exist as an isolated UI control. They should modify the shared ScenarioImpact state so existing modules visibly react.
-
-The intervention effects should be reflected in:
-
-- India Resilience Score (header)
-- Scenario Modeller metrics (SPR, fuel price, refinery impact)
-- SPR Command Center
-- Ripple Effect graph (reduced severity)
-- Executive Memo (append active directives and updated projections)
-- Procurement recommendations (where applicable)
-
-Only update metrics that are logically affected by each intervention. Avoid changing unrelated modules or introducing unrealistic improvements.
+The large white gap between the SPR Directive section and the signature block makes it look like content is missing — a judge will instinctively think "did it cut off?" Tighten this with either a thin horizontal rule + "END OF BRIEF" line above the signature, or just reduce the bottom padding so the signature sits naturally below the last content block rather than floating at the bottom of a half-empty page.

@@ -227,15 +227,22 @@ export default function ProcurementOrchestrator({
                     <div className="flex flex-col gap-2.5">
                       {options.slice(0, Math.min(3, options.length)).map((opt, idx) => {
                         const isSpr = opt.name.toLowerCase().includes("spr") || opt.name.toLowerCase().includes("strategic");
-                        const isLowestTransit = opt.transitDays === minTransit;
                         let stance = "";
-                        if (isSpr || isLowestTransit || opt.transitDays <= 3) {
-                          stance = `Favor ${opt.name} — ${opt.transitDays}-day transit, zero maritime exposure.`;
+                        
+                        if (isSpr || opt.transitDays <= 3) {
+                          stance = `Favor ${opt.name} — only option bypassing all active threat corridors with ${opt.transitDays}-day local delivery.`;
+                        } else if (opt.name.includes("West African")) {
+                          stance = `Reject ${opt.name} — ${opt.transitDays}-day transit unacceptable given active Red Sea hostilities.`;
+                        } else if (opt.name.includes("US") || opt.name.includes("Midland")) {
+                          stance = `Reject ${opt.name} — ${opt.transitDays}-day transit creates highest geopolitical risk exposure.`;
+                        } else if (opt.name.includes("Russian")) {
+                          stance = `Reject ${opt.name} — ${opt.transitDays}-day detour around Cape of Good Hope adds critical supply lags.`;
                         } else if (opt.transitDays > 20) {
-                          stance = `Reject ${opt.name} — ${opt.transitDays}-day transit unacceptable given active corridor hostilities. Favor ${securityPick.name} — ${securityPick.transitDays}-day transit, zero maritime exposure.`;
+                          stance = `Reject ${opt.name} — excessive ${opt.transitDays}-day transit is unacceptable during active shipping corridor disruptions.`;
                         } else {
-                          stance = `Accept ${opt.name} — ${opt.transitDays}-day transit with ${opt.portCongestion.toLowerCase()} congestion. Favor ${securityPick.name} for speed.`;
+                          stance = `Accept ${opt.name} as secondary co-source — ${opt.transitDays}-day transit is manageable with ${opt.portCongestion.toLowerCase()} port congestion.`;
                         }
+                        
                         return (
                           <div key={idx} className="text-[10px] font-mono text-gray-300 border-l-2 border-cyber-amber/30 pl-2 leading-relaxed italic">
                             "{stance}"

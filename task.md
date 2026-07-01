@@ -8,5 +8,11 @@
 - [x] Implement the `getAdjustedProcurementOptions` helper in [page.tsx](file:///d:/et_ai/app/page.tsx) to dynamically adjust crude source transit times, price premiums, and overall scores when active.
 - [x] Hook up automatic memo regeneration via a `useEffect` watching `activeInterventions` in [page.tsx](file:///d:/et_ai/app/page.tsx).
 - [x] Reset intervention states automatically when switching scenarios.
+- [x] Memoize `adjustedImpact` and `adjustedProcurementOptions` using React `useMemo` hooks to optimize performance and prevent render loop references.
+- [x] Integrate matching guard optimization inside animation `useEffect` to abort animation loop scheduling when targets match current values.
+- [x] Fix the blank PDF print issue by resetting print display flows on view containers and replacing the invalid className selector inside [globals.css](file:///d:/et_ai/app/globals.css) with a standard utility selector.
+- [x] Add cryptographic ledger entry hash at the very bottom of the executive memo.
+- [x] Tighten document spacing by inserting an dashed 'END OF BRIEF' divider line and reducing the margins on the signature block and auditing ledger entry.
+- [x] Fix the Security & Speed Agent logic in [ProcurementOrchestrator.tsx](file:///d:/et_ai/components/ProcurementOrchestrator.tsx) so each crude candidate is evaluated independently on its own terms rather than repeating the same SPR conclusion.
 - [x] Verify compile check (`npm run build`).
 - [x] Create walkthrough.md.

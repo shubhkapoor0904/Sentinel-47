@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Shield, Sliders, Brain, FileText, Play, Cpu } from "lucide-react";
 import RiskIntelligence from "@/components/RiskIntelligence";
 import ScenarioModeller from "@/components/ScenarioModeller";
@@ -141,7 +141,9 @@ export default function Dashboard() {
     };
   };
 
-  const adjustedImpact = getAdjustedImpact(impact);
+  const adjustedImpact = useMemo(() => {
+    return getAdjustedImpact(impact);
+  }, [impact, activeInterventions]);
 
   const getAdjustedProcurementOptions = (baseOptions: ProcurementOption[]) => {
     if (!baseOptions) return baseOptions;
@@ -199,7 +201,9 @@ export default function Dashboard() {
   };
 
   const [procurementOptions, setProcurementOptions] = useState<ProcurementOption[]>([]);
-  const adjustedProcurementOptions = getAdjustedProcurementOptions(procurementOptions);
+  const adjustedProcurementOptions = useMemo(() => {
+    return getAdjustedProcurementOptions(procurementOptions);
+  }, [procurementOptions, activeInterventions, activeScenarioId]);
 
   const [animatedDaysOfCover, setAnimatedDaysOfCover] = useState<number>(9.5);
   const [animatedRefinery, setAnimatedRefinery] = useState<number>(0);
@@ -228,6 +232,20 @@ export default function Dashboard() {
     const startRefinery = animatedRefineryRef.current;
     const startPrice = animatedPriceRef.current;
     const startGdp = animatedGdpRef.current;
+
+    if (
+      targetDays === startDays &&
+      targetRefinery === startRefinery &&
+      targetPrice === startPrice &&
+      targetGdp === startGdp
+    ) {
+      setAnimatedDaysOfCover(targetDays);
+      setAnimatedRefinery(targetRefinery);
+      setAnimatedPrice(targetPrice);
+      setAnimatedGdp(targetGdp);
+      return;
+    }
+
 
     const duration = 10000; // 10 seconds synchronized tweening
     const startTime = performance.now();
@@ -995,7 +1013,7 @@ export default function Dashboard() {
       )}
 
       {/* 3. Main Dashboard Workspace Layout */}
-      <div className="flex-1 flex flex-row min-h-0 relative overflow-hidden">
+      <div className="flex-1 flex flex-row min-h-0 relative overflow-hidden print:block print:overflow-visible print:h-auto">
         
         {/* Left Side: Vertical Navigation Icon Rail */}
         <div className="w-16 min-h-screen bg-[#070b13] border-r border-cyber-border flex flex-col items-center py-6 gap-6 shrink-0 print:hidden select-none z-20">
@@ -1033,10 +1051,10 @@ export default function Dashboard() {
         </div>
 
         {/* Right Side: Main view display container with slide-and-crossfade transitions */}
-        <div className="flex-1 relative min-h-0 bg-cyber-bg z-10">
+        <div className="flex-1 relative min-h-0 bg-cyber-bg z-10 print:block print:overflow-visible print:h-auto print:bg-white">
           
           {/* View 1: Geopolitical Risk Intelligence */}
-          <div className={`absolute inset-0 p-6 overflow-y-auto transition-all duration-300 transform ${
+          <div className={`absolute inset-0 p-6 overflow-y-auto transition-all duration-300 transform print:hidden ${
             activeTab === 0 
               ? "opacity-100 translate-x-0 scale-100 pointer-events-auto" 
               : "opacity-0 -translate-x-8 pointer-events-none scale-95"
@@ -1052,7 +1070,7 @@ export default function Dashboard() {
           </div>
 
           {/* View 2: Disruption Scenario Modeller */}
-          <div className={`absolute inset-0 p-6 overflow-y-auto transition-all duration-300 transform ${
+          <div className={`absolute inset-0 p-6 overflow-y-auto transition-all duration-300 transform print:hidden ${
             activeTab === 1 
               ? "opacity-100 translate-x-0 scale-100 pointer-events-auto" 
               : "opacity-0 translate-x-8 pointer-events-none scale-95"
@@ -1088,7 +1106,7 @@ export default function Dashboard() {
           </div>
 
           {/* View 3: Adaptive Procurement Orchestrator */}
-          <div className={`absolute inset-0 p-6 overflow-y-auto transition-all duration-300 transform ${
+          <div className={`absolute inset-0 p-6 overflow-y-auto transition-all duration-300 transform print:hidden ${
             activeTab === 2 
               ? "opacity-100 translate-x-0 scale-100 pointer-events-auto" 
               : "opacity-0 translate-x-8 pointer-events-none scale-95"
