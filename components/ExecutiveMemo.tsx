@@ -2,6 +2,7 @@
 
 import React, { useRef, useState, useEffect } from "react";
 import { Download, FileText, Printer, ShieldAlert } from "lucide-react";
+import { useSentinelStore } from "../store/sentinel";
 
 interface MemoStructure {
   memoId: string;
@@ -20,30 +21,40 @@ interface MemoStructure {
 }
 
 interface ExecutiveMemoProps {
-  memo: MemoStructure;
   isLoading: boolean;
   onGenerate: () => void;
   gdpDrag: number;
   sprDays: number;
-  activeScenarioId: string;
-  activeInterventions: {
-    navyEscorts: boolean;
-    sprRelease: boolean;
-    opecNegotiation: boolean;
-  };
-  onToggleIntervention: (id: "navyEscorts" | "sprRelease" | "opecNegotiation") => void;
 }
 
 export default function ExecutiveMemo({
-  memo,
   isLoading,
   onGenerate,
   gdpDrag,
   sprDays,
-  activeScenarioId,
-  activeInterventions,
-  onToggleIntervention,
 }: ExecutiveMemoProps) {
+  const {
+    currentMemo,
+    activeScenarioId,
+    activeInterventions,
+    toggleIntervention,
+    ledgerEntries,
+  } = useSentinelStore();
+
+  const memo = currentMemo ?? {
+    memoId: "S47-MOPNG-PENDING",
+    date: new Date().toLocaleDateString("en-IN"),
+    to: "Minister of Petroleum & Natural Gas, Government of India",
+    from: "Sentinel-47 Energy Security Intelligence System",
+    subject: "EMERGENCY OIL SUPPLY RESILIENCE & PROCUREMENT ACTION PLAN",
+    executiveSummary: "Initializing system states. Select a disruption scenario to generate briefing details.",
+    riskAssessment: ["Awaiting telemetry analysis."],
+    impactFindings: ["No active disruption scenario modeled."],
+    procurementDirectives: ["No emergency routes required."],
+    sprDirectives: "Strategic reserves at full capacity. No drawdown required.",
+    signature: "Director-General, Sentinel-47",
+    timeSavedStatement: "Awaiting calculation cycle."
+  };
   const memoRef = useRef<HTMLDivElement>(null);
   const [localCompiling, setLocalCompiling] = useState(false);
   const [compileProgress, setCompileProgress] = useState(0);
@@ -241,7 +252,7 @@ export default function ExecutiveMemo({
                     {/* Directive 1: Navy Escorts */}
                     <button
                       disabled={navyDisabled}
-                      onClick={() => onToggleIntervention("navyEscorts")}
+                      onClick={() => toggleIntervention("navyEscorts")}
                       className={`p-2 rounded border font-mono transition-all duration-200 select-none flex flex-col justify-center text-left text-[10px] w-full h-[48px] ${getCardStyle(activeInterventions.navyEscorts, navyDisabled)}`}
                     >
                       <div className="flex justify-between items-center font-bold w-full">
@@ -255,7 +266,7 @@ export default function ExecutiveMemo({
                     {/* Directive 2: SPR Release */}
                     <button
                       disabled={sprDisabled}
-                      onClick={() => onToggleIntervention("sprRelease")}
+                      onClick={() => toggleIntervention("sprRelease")}
                       className={`p-2 rounded border font-mono transition-all duration-200 select-none flex flex-col justify-center text-left text-[10px] w-full h-[48px] ${getCardStyle(activeInterventions.sprRelease, sprDisabled)}`}
                     >
                       <div className="flex justify-between items-center font-bold w-full">
@@ -269,7 +280,7 @@ export default function ExecutiveMemo({
                     {/* Directive 3: OPEC Negotiation */}
                     <button
                       disabled={opecDisabled}
-                      onClick={() => onToggleIntervention("opecNegotiation")}
+                      onClick={() => toggleIntervention("opecNegotiation")}
                       className={`p-2 rounded border font-mono transition-all duration-200 select-none flex flex-col justify-center text-left text-[10px] w-full h-[48px] ${getCardStyle(activeInterventions.opecNegotiation, opecDisabled)}`}
                     >
                       <div className="flex justify-between items-center font-bold w-full">
@@ -449,7 +460,15 @@ export default function ExecutiveMemo({
 
             {/* Cryptographic Ledger Hash */}
             <div className="mt-5 pt-3 border-t border-gray-200 text-center font-mono text-[8.5px] text-gray-500 print:text-gray-600 select-none">
-              LEDGER ENTRY: SHA-256 · 7f3a9c2e4b1d... · Logged 01-07-2026 20:13:44 IST · Entry #4 of 4
+              {ledgerEntries.length > 0 ? (
+                <>
+                  LEDGER ENTRY: SHA-256 · {ledgerEntries[ledgerEntries.length - 1].hash.slice(0, 12)}... · Logged {ledgerEntries[ledgerEntries.length - 1].timestamp} · Entry #{ledgerEntries.length} of {ledgerEntries.length}
+                </>
+              ) : (
+                <>
+                  LEDGER ENTRY: SHA-256 · 7f3a9c2e4b1d... · Logged 01-07-2026 20:13:44 IST · Entry #4 of 4
+                </>
+              )}
             </div>
 
             {/* Human Authorization Disclaimer */}

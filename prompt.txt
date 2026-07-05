@@ -1,15 +1,72 @@
-Refactor the Module 2 preset list into visually distinct categories using color-coded sections (no layout overhaul).
+UPGRADE 1 — ZUSTAND GLOBAL STORE
+(fixes tour desync root cause + makes all future state
+changes structurally safe)
 
-Category 1 — Regional Disruption Scenarios (Hormuz, OPEC+, Red Sea):
-Accent: Orange (#F97316)
+npm install zustand
 
-Category 2 — User Simulation (Custom Simulator):
-Accent: Blue (#3B82F6)
+Create /store/sentinel.ts with a single Zustand store.
+This store is the ONLY source of truth for shared state
+across all 4 modules. Do not leave any of this state in
+local useState — migrate it all:
 
-Category 3 — Historical Validation (Replay: 2025 US-Iran Standoff):
-Accent: Gold/Sepia (#D4A017)
+interface SentinelStore {
 
-Category 4 — Composite Analysis (Weighted Composite):
-Accent: Cyan/Teal (#06B6D4)
+  // Module 1 live state
+  brentPrice: number;
+  corridorScores: {
+    hormuz: number;
+    redSea: number;
+    suez: number;
+  };
+  signals: Signal[];         // live threat signal feed
+  darkFleetEvents: DarkFleetEntry[];
+  lastFetchedAt: Date | null;
 
-Keep the active preset highlighted with the existing orange active state regardless of category. Preserve all existing functionality and calculations; this is a visual hierarchy improvement only. Also dont want that bar on the left on weight response card and the background tint on those 3 cards too
+  // Module 2 scenario state
+  activeScenarioId: string | null;
+  scenarioOutput: ScenarioOutput | null;
+
+  // Module 3 procurement state
+  rankedOptions: ProcurementOption[];
+
+  // Module 4 memo state
+  currentMemo: Memo | null;
+  ledgerEntries: LedgerEntry[];
+
+  // Resilience Index (derived, auto-computed)
+  resilienceScore: number;
+
+  // Guided demo state
+  demoRunning: boolean;
+  demoPaused: boolean;
+  demoStep: number;          // 0 = not started, 1-4 = active step
+  demoStepStartedAt: Date | null;
+
+  // Actions
+  setCorridorScores: (scores) => void;
+  setActiveScenario: (id: string) => void;
+  appendLedgerEntry: (entry: LedgerEntry) => void;
+  setDemoStep: (step: number) => void;
+  pauseDemo: () => void;
+  resumeDemo: () => void;
+  stopDemo: () => void;
+}
+
+CRITICAL RULES:
+- resilienceScore must be a COMPUTED value, not stored
+  directly — derive it inside the store from corridorScores
+  + scenarioOutput every time either changes. Use Zustand's
+  subscribeWithSelector or a derived selector for this.
+  Never let resilienceScore get out of sync with its inputs.
+- demoStep must be the single source of truth for the
+  guided tour caption, the timer display, and the
+  auto-navigation. Any component that reads demoStep
+  will automatically stay in sync — the caption desync
+  bug becomes structurally impossible.
+- LedgerEntry must be appended to localStorage on every
+  appendLedgerEntry call (see Upgrade 2 below) — wire
+  this in the action, not in the component.
+
+After creating the store, migrate ALL components to read
+from it via useSentinelStore(). Show me the full store
+definition before migrating any components.

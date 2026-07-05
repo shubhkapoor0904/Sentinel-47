@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { AlertOctagon, Info, Sliders } from "lucide-react";
 import AnimatedNumber from "./AnimatedNumber";
+import { useSentinelStore } from "../store/sentinel";
 
 interface ScenarioImpact {
   refinery_run_rate_drop: number;
@@ -13,9 +14,6 @@ interface ScenarioImpact {
 }
 
 interface ScenarioModellerProps {
-  activeScenarioId: string;
-  customCapacityLoss: number;
-  impact: ScenarioImpact;
   animatedDaysOfCover: number;
   animatedRefinery: number;
   animatedPrice: number;
@@ -23,13 +21,9 @@ interface ScenarioModellerProps {
   isLoading: boolean;
   onScenarioChange: (scenarioId: string) => void;
   onCustomLossChange: (loss: number) => void;
-  weights: { hormuz: number; redSea: number; opec: number; isFallback: boolean };
 }
 
 export default function ScenarioModeller({
-  activeScenarioId,
-  customCapacityLoss,
-  impact,
   animatedDaysOfCover,
   animatedRefinery,
   animatedPrice,
@@ -37,8 +31,41 @@ export default function ScenarioModeller({
   isLoading,
   onScenarioChange,
   onCustomLossChange,
-  weights,
 }: ScenarioModellerProps) {
+  const {
+    activeScenarioId,
+    customCapacityLoss,
+    scenarioOutput,
+    corridorScores,
+  } = useSentinelStore();
+
+  const impact = scenarioOutput ?? {
+    refinery_run_rate_drop: 0,
+    fuel_price_delta: 0,
+    days_of_cover: 9.5,
+    gdp_drag: 0,
+    assumptions: [
+      "Assumes normal corridor supply lanes are operational.",
+      "Assumes baseline Brent crude price levels."
+    ],
+  };
+
+  const weights = useMemo(() => {
+    const rHormuz = corridorScores.hormuz;
+    const rRedSea = corridorScores.redSea;
+    const rSuez = corridorScores.suez;
+    
+    const total = rHormuz + rRedSea + rSuez;
+    if (total === 0) {
+      return { hormuz: 33, redSea: 33, opec: 34, isFallback: true };
+    }
+    
+    const wHormuz = Math.round((rHormuz / total) * 100);
+    const wRedSea = Math.round((rRedSea / total) * 100);
+    const wOpec = 100 - wHormuz - wRedSea;
+    return { hormuz: wHormuz, redSea: wRedSea, opec: wOpec, isFallback: false };
+  }, [corridorScores]);
+
   const [hoveredAssumption, setHoveredAssumption] = useState<number | null>(null);
 
   // Derived node variables based on current metrics

@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Anchor, Brain, Clock, ShieldCheck, Ship, Tag, DollarSign, Shield, ChevronDown, ChevronUp } from "lucide-react";
 import AnimatedNumber from "./AnimatedNumber";
+import { useSentinelStore } from "../store/sentinel";
 
 interface ProcurementOption {
   name: string;
@@ -16,16 +17,72 @@ interface ProcurementOption {
 }
 
 interface ProcurementOrchestratorProps {
-  options: ProcurementOption[];
   isLoading: boolean;
   visibleCount?: number;
 }
 
 export default function ProcurementOrchestrator({ 
-  options, 
   isLoading,
   visibleCount
 }: ProcurementOrchestratorProps) {
+  const { rankedOptions, activeInterventions, activeScenarioId } = useSentinelStore();
+
+  // Apply response intervention adjustments dynamically
+  const options = useMemo(() => {
+    if (!rankedOptions) return [];
+
+    return rankedOptions.map((opt) => {
+      let premium = opt.pricePremium;
+      let transit = opt.transitDays;
+      let congestion = opt.portCongestion;
+      let compatibility = opt.compatibility;
+      let score = opt.overallScore;
+      let reasoning = opt.reasoning;
+
+      // 1. Deploy Navy Escorts
+      if (activeInterventions.navyEscorts) {
+        if (opt.name.includes("Russian Urals") && activeScenarioId === "red_sea_full") {
+          transit = 22;
+          premium = Math.max(-2.8, premium - 0.80);
+          score = Math.min(100, score + 12);
+          reasoning = "INTERVENTION ACTIVE: Naval convoy escort (Operation Sankalp) stabilizes Red Sea transit lanes, shortening Cape reroute delay by 12 days and lowering insurance premiums.";
+        } else if (opt.name.includes("North Sea") && activeScenarioId === "red_sea_full") {
+          transit = 34;
+          premium = Math.max(4.1, premium - 1.00);
+          score = Math.min(100, score + 10);
+          reasoning = "INTERVENTION ACTIVE: Armed escorts secure Suez-bound tankers, saving 10 days of Cape transit detour.";
+        }
+      }
+
+      // 2. Release Emergency SPR Reserves
+      if (activeInterventions.sprRelease) {
+        if (opt.name.includes("Strategic Petroleum Reserve")) {
+          score = 100;
+          reasoning = "INTERVENTION ACTIVE: Coordinated emergency release from Visakhapatnam and Padur is currently injecting crude directly to Jamnagar and domestic refineries.";
+        }
+      }
+
+      // 3. Bilateral OPEC Negotiation
+      if (activeInterventions.opecNegotiation) {
+        if (opt.name.includes("West African") || opt.source.includes("Persian Gulf") || opt.name.includes("Brent")) {
+          premium = Math.max(0.2, premium - 0.90);
+          score = Math.min(100, score + 8);
+          reasoning = "INTERVENTION ACTIVE: Bilateral OPEC negotiations successfully secure term-contract volume pricing, offsetting regional spot market premiums.";
+        }
+      }
+
+      return {
+        ...opt,
+        pricePremium: premium,
+        transitDays: transit,
+        portCongestion: congestion,
+        compatibility,
+        overallScore: score,
+        reasoning
+      };
+    }).sort((a, b) => b.overallScore - a.overallScore);
+  }, [rankedOptions, activeInterventions, activeScenarioId]);
+
   const [selectedRoute, setSelectedRoute] = useState<number | null>(0);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [animationStep, setAnimationStep] = useState(0);

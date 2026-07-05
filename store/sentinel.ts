@@ -1,30 +1,3 @@
-# Implementation Plan - Upgrade 1: Zustand Global Store
-
-This plan introduces a single, centralized Zustand store at `/store/sentinel.ts` to manage all shared state across the 4 modules of Sentinel-47. It fixes the guided tour desynchronization bug and establishes a robust state framework for all future features.
-
----
-
-## User Review Required
-
-> [!IMPORTANT]
-> **Store Definition Approval**:
-> Please review and approve the full store definition in `/store/sentinel.ts` before component migration begins.
-> 
-> **Core Decisions**:
-> - **Resilience Score**: Calculated dynamically inside the store using a `subscribe` selector to ensure it is always in sync with both live corridor scores and current scenario output (adjusted for active response interventions).
-> - **Demo Step & Navigation**: `demoStep` (0 to 4) is the single source of truth. Auto-navigation and HUD captions/timers are fully derived from `demoStep` and `demoTime`, eliminating the tour desynchronization issue.
-> - **Ledger Entries**: Any additions to `ledgerEntries` via `appendLedgerEntry` are wired to persist directly to `localStorage`, keeping audit logs intact.
-
----
-
-## Proposed Changes
-
-### Central Store
-
-#### [NEW] [sentinel.ts](file:///d:/et_ai/store/sentinel.ts)
-Create the Zustand global store with the following TypeScript implementation:
-
-```typescript
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 
@@ -148,6 +121,7 @@ export interface SentinelStore {
   setCurrentMemo: (memo: Memo | null) => void;
   appendLedgerEntry: (entry: LedgerEntry) => void;
   toggleIntervention: (id: "navyEscorts" | "sprRelease" | "opecNegotiation") => void;
+  setInterventions: (interventions: { navyEscorts: boolean; sprRelease: boolean; opecNegotiation: boolean }) => void;
   resetInterventions: () => void;
 
   setDemoStep: (step: number) => void;
@@ -251,6 +225,7 @@ export const useSentinelStore = create(
         [id]: !state.activeInterventions[id]
       }
     })),
+    setInterventions: (interventions) => set({ activeInterventions: interventions }),
     resetInterventions: () => set({
       activeInterventions: { navyEscorts: false, sprRelease: false, opecNegotiation: false }
     }),
@@ -346,40 +321,3 @@ useSentinelStore.subscribe(
       a[2].opecNegotiation === b[2].opecNegotiation
   }
 );
-```
-
-### Components Migration
-
-#### [MODIFY] [page.tsx](file:///d:/et_ai/app/page.tsx)
-- Migrate all local useState definitions (`corridors`, `signals`, `brentPrice`, `brentSource`, `activeScenarioId`, `customCapacityLoss`, `impact`, `activeInterventions`, `procurementOptions`, `memo`, `demoActive`, `demoPaused`, `demoTime`) to pull from and push to `useSentinelStore`.
-- Update the timer logic and initial load to trigger actions in the store.
-- Use `demoStep` directly to determine the active tab:
-  `const activeTab = demoStep > 0 ? demoStep - 1 : localActiveTab;`
-
-#### [MODIFY] [RiskIntelligence.tsx](file:///d:/et_ai/components/RiskIntelligence.tsx)
-- Migrate props and internally read from the store for shared state variables (`corridors`, `signals`, `brentPrice`, `brentSource`, `isLoading`).
-
-#### [MODIFY] [ScenarioModeller.tsx](file:///d:/et_ai/components/ScenarioModeller.tsx)
-- Pull scenarios, weights, and active state from the store.
-
-#### [MODIFY] [ProcurementOrchestrator.tsx](file:///d:/et_ai/components/ProcurementOrchestrator.tsx)
-- Read ranked options directly from the store.
-
-#### [MODIFY] [ExecutiveMemo.tsx](file:///d:/et_ai/components/ExecutiveMemo.tsx)
-- Read memo state, ledger entries, and active interventions directly from the store.
-- Call store actions to toggle interventions and append ledger entries.
-
----
-
-## Verification Plan
-
-### Automated Tests
-- Run `npm run build` to verify standard Next.js build compilation with the new store and hooks.
-
-### Manual Verification
-- Start the application with `npm run dev`.
-- Start the Guided Tour:
-  - Verify that the timer HUD, auto-navigation tabs, and narration captions update in perfect sync.
-  - Pause, resume, and stop the tour. Verify there are no desynchronizations or layout freezing.
-  - Manually navigate to a different tab during the tour: verify the tour pauses and updates the step caption/timer to match the newly navigated view.
-- Trigger scenario presets and verify all metric tubes, cylinders, and ledger entries animate and save to local storage.

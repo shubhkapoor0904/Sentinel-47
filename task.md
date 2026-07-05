@@ -1,24 +1,17 @@
-# Task Checklist - Ministerial Response Interventions
+# Task Checklist - Upgrade 1: Zustand Global Store
 
-- [x] Restructure the Strategic Response Benchmark section of the Executive Memo page into a **75/25 split** in [ExecutiveMemo.tsx](file:///d:/et_ai/components/ExecutiveMemo.tsx).
-- [x] Create the **Response Interventions** panel on the right side (25% width) in [ExecutiveMemo.tsx](file:///d:/et_ai/components/ExecutiveMemo.tsx).
-- [x] Implement the three directive cards (Deploy Navy Escorts, Release SPR Reserves, Bilateral OPEC Negotiation) with Available, Active, and Disabled states.
-- [x] Declare active interventions state in [page.tsx](file:///d:/et_ai/app/page.tsx).
-- [x] Create the `getAdjustedImpact` helper in [page.tsx](file:///d:/et_ai/app/page.tsx) to modify run rate drops, price shocks, days of cover, and GDP drag when directives are toggled active.
-- [x] Implement the `getAdjustedProcurementOptions` helper in [page.tsx](file:///d:/et_ai/app/page.tsx) to dynamically adjust crude source transit times, price premiums, and overall scores when active.
-- [x] Hook up automatic memo regeneration via a `useEffect` watching `activeInterventions` in [page.tsx](file:///d:/et_ai/app/page.tsx).
-- [x] Reset intervention states automatically when switching scenarios.
-- [x] Memoize `adjustedImpact` and `adjustedProcurementOptions` using React `useMemo` hooks to optimize performance and prevent render loop references.
-- [x] Integrate matching guard optimization inside animation `useEffect` to abort animation loop scheduling when targets match current values.
-- [x] Fix the blank PDF print issue by resetting print display flows on view containers and replacing the invalid className selector inside [globals.css](file:///d:/et_ai/app/globals.css) with a standard utility selector.
-- [x] Add cryptographic ledger entry hash at the very bottom of the executive memo.
-- [x] Tighten document spacing by inserting an dashed 'END OF BRIEF' divider line and reducing the margins on the signature block and auditing ledger entry.
-- [x] Fix the Security & Speed Agent logic in [ProcurementOrchestrator.tsx](file:///d:/et_ai/components/ProcurementOrchestrator.tsx) so each crude candidate is evaluated independently on its own terms rather than repeating the same SPR conclusion.
-- [x] Add **Live Scenario Probability Weighting** badges and ASCII progress bars to existing active presets (Hormuz, OPEC+, Red Sea) in [ScenarioModeller.tsx](file:///d:/et_ai/components/ScenarioModeller.tsx).
-- [x] Add a **Weighted Composite** simulation preset option that dynamically averages the outputs of the 3 active scenarios based on live threat corridor weights.
-- [x] Integrate dynamic auto-updating when risk scores refresh, and fall back to equal (33%/33%/34%) weights labeled `[EST.]` when risk score data is missing.
-- [x] Display a data honesty disclaimer caption at the bottom of the preset controls panel when the composite preset is active.
-- [x] Fit SPR Command Center cavern heights, margins, and padding within 266px bounds to prevent telemetry text from going out of bounds.
-- [x] Style CUSTOM SIMULATOR with the same capital casing and amber color scheme as REPLAY and WEIGHTED COMPOSITE, and reposition it above the REPLAY card with the slider nested directly beneath it.
-- [x] Verify compile check (`npm run build`).
-- [x] Create walkthrough.md.
+- [x] Initialize Zustand store setup
+  - [x] Install `zustand` npm package (added to dependencies in package.json)
+  - [x] Create store file at [sentinel.ts](file:///d:/et_ai/store/sentinel.ts)
+- [x] Migrate Main Page logic
+  - [x] Replace local state declarations in [page.tsx](file:///d:/et_ai/app/page.tsx) with store selectors
+  - [x] Integrate store actions for fetching, simulating, and brief compiling
+  - [x] Rewrite guided demo interval loop and event triggers in [page.tsx](file:///d:/et_ai/app/page.tsx) to rely on store `demoStep` and `demoTime`
+- [x] Migrate Components
+  - [x] Refactor [RiskIntelligence.tsx](file:///d:/et_ai/components/RiskIntelligence.tsx) to consume state from store
+  - [x] Refactor [ScenarioModeller.tsx](file:///d:/et_ai/components/ScenarioModeller.tsx) to consume state from store
+  - [x] Refactor [ProcurementOrchestrator.tsx](file:///d:/et_ai/components/ProcurementOrchestrator.tsx) to consume state from store
+  - [x] Refactor [ExecutiveMemo.tsx](file:///d:/et_ai/components/ExecutiveMemo.tsx) to consume state from store
+- [/] Verification
+  - [ ] Run `npm run build` to verify Next.js build compilation (needs user run due to system tool access denial)
+  - [ ] Verify all guided tour transitions, intervention switches, and local storage ledger entries manually

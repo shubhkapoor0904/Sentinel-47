@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Shield, Sliders, Brain, FileText, Play, Cpu } from "lucide-react";
+import { useSentinelStore } from "../store/sentinel";
 import RiskIntelligence from "@/components/RiskIntelligence";
 import ScenarioModeller from "@/components/ScenarioModeller";
 import ProcurementOrchestrator from "@/components/ProcurementOrchestrator";
@@ -65,17 +66,80 @@ interface MemoStructure {
 }
 
 export default function Dashboard() {
-  // Global States
-  const [corridors, setCorridors] = useState<{ [key: string]: CorridorState }>({});
-  
+  // Zustand Store Integration
+  const {
+    brentPrice,
+    brentSource,
+    corridorScores,
+    signals,
+    activeScenarioId,
+    scenarioOutput,
+    customCapacityLoss,
+    rankedOptions,
+    currentMemo,
+    activeInterventions,
+    ledgerEntries,
+    demoRunning,
+    demoPaused,
+    demoStep,
+    demoTime,
+    setBrentPrice,
+    setBrentSource,
+    setCorridorScores,
+    setSignals,
+    setActiveScenario,
+    setScenarioOutput,
+    setCustomCapacityLoss,
+    setRankedOptions,
+    setCurrentMemo,
+    appendLedgerEntry,
+    toggleIntervention,
+    setInterventions,
+    resetInterventions,
+    setDemoStep,
+    setDemoTime,
+    incrementDemoTime,
+    pauseDemo,
+    resumeDemo,
+    stopDemo,
+    startDemo,
+  } = useSentinelStore();
+
+  // Reconstruct detailed corridors object from corridorScores
+  const corridors = useMemo(() => {
+    const getStatus = (score: number) => {
+      if (score >= 65) return "CRITICAL";
+      if (score >= 35) return "WARNING";
+      return "STABLE";
+    };
+
+    return {
+      Hormuz: {
+        name: "Strait of Hormuz",
+        score: corridorScores.hormuz,
+        status: getStatus(corridorScores.hormuz),
+        description: "Controls 40%+ of Indian crude imports.",
+      },
+      "Red Sea": {
+        name: "Red Sea / Bab-el-Mandeb",
+        score: corridorScores.redSea,
+        status: getStatus(corridorScores.redSea),
+        description: "Primary lane for imports from Europe/US & exports.",
+      },
+      Suez: {
+        name: "Suez Canal",
+        score: corridorScores.suez,
+        status: getStatus(corridorScores.suez),
+        description: "Vessel transit flow route for Russian crude imports.",
+      },
+    };
+  }, [corridorScores]);
+
+  // Derived weights from corridors
   const weights = useMemo(() => {
-    const rHormuz = corridors["Hormuz"]?.score;
-    const rRedSea = corridors["Red Sea"]?.score;
-    const rSuez = corridors["Suez"]?.score;
-    
-    if (rHormuz === undefined || rRedSea === undefined || rSuez === undefined) {
-      return { hormuz: 33, redSea: 33, opec: 34, isFallback: true };
-    }
+    const rHormuz = corridorScores.hormuz;
+    const rRedSea = corridorScores.redSea;
+    const rSuez = corridorScores.suez;
     
     const total = rHormuz + rRedSea + rSuez;
     if (total === 0) {
@@ -86,15 +150,12 @@ export default function Dashboard() {
     const wRedSea = Math.round((rRedSea / total) * 100);
     const wOpec = 100 - wHormuz - wRedSea;
     return { hormuz: wHormuz, redSea: wRedSea, opec: wOpec, isFallback: false };
-  }, [corridors]);
-  const [signals, setSignals] = useState<GeopoliticalSignal[]>([]);
-  const [brentPrice, setBrentPrice] = useState<number>(74.50);
-  const [brentSource, setBrentSource] = useState<string>("Estimated");
-  
-  const [activeTab, setActiveTab] = useState<number>(0);
-  const [activeScenarioId, setActiveScenarioId] = useState<string>("baseline");
-  const [customCapacityLoss, setCustomCapacityLoss] = useState<number>(0);
-  const [impact, setImpact] = useState<ScenarioImpact>({
+  }, [corridorScores]);
+
+  const [localActiveTab, setLocalActiveTab] = useState<number>(0);
+  const activeTab = demoRunning && demoStep > 0 ? demoStep - 1 : localActiveTab;
+
+  const impact = scenarioOutput ?? {
     refinery_run_rate_drop: 0,
     fuel_price_delta: 0,
     days_of_cover: 9.5,
@@ -103,17 +164,23 @@ export default function Dashboard() {
       "Assumes normal corridor supply lanes are operational.",
       "Assumes baseline Brent crude price levels."
     ],
-  });
+  };
 
-  const [activeInterventions, setActiveInterventions] = useState<{
-    navyEscorts: boolean;
-    sprRelease: boolean;
-    opecNegotiation: boolean;
-  }>({
-    navyEscorts: false,
-    sprRelease: false,
-    opecNegotiation: false,
-  });
+  const procurementOptions = rankedOptions;
+  const memo = currentMemo ?? {
+    memoId: "S47-MOPNG-PENDING",
+    date: new Date().toLocaleDateString("en-IN"),
+    to: "Minister of Petroleum & Natural Gas, Government of India",
+    from: "Sentinel-47 Energy Security Intelligence System",
+    subject: "EMERGENCY OIL SUPPLY RESILIENCE & PROCUREMENT ACTION PLAN",
+    executiveSummary: "Initializing system states. Select a disruption scenario to generate briefing details.",
+    riskAssessment: ["Awaiting telemetry analysis."],
+    impactFindings: ["No active disruption scenario modeled."],
+    procurementDirectives: ["No emergency routes required."],
+    sprDirectives: "Strategic reserves at full capacity. No drawdown required.",
+    signature: "Director-General, Sentinel-47",
+    timeSavedStatement: "Awaiting calculation cycle."
+  };
 
   const getAdjustedImpact = (baseImpact: ScenarioImpact) => {
     if (!baseImpact) return baseImpact;
@@ -220,7 +287,6 @@ export default function Dashboard() {
     }).sort((a, b) => b.overallScore - a.overallScore);
   };
 
-  const [procurementOptions, setProcurementOptions] = useState<ProcurementOption[]>([]);
   const adjustedProcurementOptions = useMemo(() => {
     return getAdjustedProcurementOptions(procurementOptions);
   }, [procurementOptions, activeInterventions, activeScenarioId]);
@@ -298,21 +364,6 @@ export default function Dashboard() {
   }, [adjustedImpact?.days_of_cover, adjustedImpact?.refinery_run_rate_drop, adjustedImpact?.fuel_price_delta, adjustedImpact?.gdp_drag]);
 
 
-  const [memo, setMemo] = useState<MemoStructure>({
-    memoId: "S47-MOPNG-PENDING",
-    date: new Date().toLocaleDateString("en-IN"),
-    to: "Minister of Petroleum & Natural Gas, Government of India",
-    from: "Sentinel-47 Energy Security Intelligence System",
-    subject: "EMERGENCY OIL SUPPLY RESILIENCE & PROCUREMENT ACTION PLAN",
-    executiveSummary: "Initializing system states. Select a disruption scenario to generate briefing details.",
-    riskAssessment: ["Awaiting telemetry analysis."],
-    impactFindings: ["No active disruption scenario modeled."],
-    procurementDirectives: ["No emergency routes required."],
-    sprDirectives: "Strategic reserves at full capacity. No drawdown required.",
-    signature: "Director-General, Sentinel-47",
-    timeSavedStatement: "Awaiting calculation cycle."
-  });
-
   // Loader states
   const [isLoadingRisk, setIsLoadingRisk] = useState<boolean>(false);
   const [isLoadingScenario, setIsLoadingScenario] = useState<boolean>(false);
@@ -320,9 +371,6 @@ export default function Dashboard() {
   const [isLoadingMemo, setIsLoadingMemo] = useState<boolean>(false);
 
   // Guided Demo States
-  const [demoActive, setDemoActive] = useState<boolean>(false);
-  const [demoPaused, setDemoPaused] = useState<boolean>(false);
-  const [demoTime, setDemoTime] = useState<number>(0);
   const [procurementVisibleCount, setProcurementVisibleCount] = useState<number | undefined>(undefined);
   const [showResiliencePopover, setShowResiliencePopover] = useState<boolean>(false);
 
@@ -335,7 +383,11 @@ export default function Dashboard() {
       const res = await fetch("/api/risk");
       if (res.ok) {
         const data = await res.json();
-        setCorridors(data.corridors);
+        setCorridorScores({
+          hormuz: data.corridors["Hormuz"]?.score ?? 15,
+          redSea: data.corridors["Red Sea"]?.score ?? 15,
+          suez: data.corridors["Suez"]?.score ?? 15,
+        });
         setSignals(data.signals);
         setBrentPrice(data.brentPrice);
         setBrentSource(data.brentSource);
@@ -391,7 +443,7 @@ export default function Dashboard() {
           const blendedDays = Math.round((hImpact.days_of_cover * wH + oImpact.days_of_cover * wO + rImpact.days_of_cover * wR) * 10) / 10;
           const blendedGdp = Math.round((hImpact.gdp_drag * wH + oImpact.gdp_drag * wO + rImpact.gdp_drag * wR) * 100) / 100;
 
-          const compositeImpact: ScenarioImpact = {
+          const compositeImpact: ScenarioOutput = {
             refinery_run_rate_drop: blendedRefinery,
             fuel_price_delta: blendedPrice,
             days_of_cover: blendedDays,
@@ -403,7 +455,7 @@ export default function Dashboard() {
             ]
           };
 
-          setImpact(compositeImpact);
+          setScenarioOutput(compositeImpact);
           return compositeImpact;
         }
       }
@@ -419,7 +471,7 @@ export default function Dashboard() {
       });
       if (res.ok) {
         const data = await res.json();
-        setImpact(data.impact);
+        setScenarioOutput(data.impact);
         return data.impact;
       }
     } catch (e) {
@@ -444,7 +496,7 @@ export default function Dashboard() {
       });
       if (res.ok) {
         const data = await res.json();
-        setProcurementOptions(data.options);
+        setRankedOptions(data.options);
         return data.options;
       }
     } catch (e) {
@@ -461,7 +513,7 @@ export default function Dashboard() {
     brSrc: string,
     scName: string,
     loss: number,
-    imp: ScenarioImpact,
+    imp: ScenarioOutput,
     procOpts: ProcurementOption[],
     compTime: number
   ) => {
@@ -483,7 +535,7 @@ export default function Dashboard() {
       });
       if (res.ok) {
         const data = await res.json();
-        setMemo(data.memo);
+        setCurrentMemo(data.memo);
       }
     } catch (e) {
       console.error("Failed to compile decision brief:", e);
@@ -552,8 +604,23 @@ export default function Dashboard() {
         adjustedActiveProc,
         compilationTime
       );
+
+      // Generate a mock hash and append a ledger entry
+      const generateHash = () => {
+        return Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+      };
+      const newEntry = {
+        id: `LOG-${Date.now()}`,
+        hash: generateHash(),
+        timestamp: new Date().toLocaleString("en-IN"),
+        scenarioId: scId,
+        details: `Disruption simulated at ${computedLoss}% capacity loss.`
+      };
+      appendLedgerEntry(newEntry);
     }
   };
+
+
 
   // Auto-update composite scenario when weights change
   useEffect(() => {
@@ -606,11 +673,11 @@ export default function Dashboard() {
     regenerateMemo();
   }, [activeInterventions]);
 
-  const demoActiveRef = useRef(demoActive);
+  const demoActiveRef = useRef(demoRunning);
 
   useEffect(() => {
-    demoActiveRef.current = demoActive;
-  }, [demoActive]);
+    demoActiveRef.current = demoRunning;
+  }, [demoRunning]);
 
   // Initial Load
   useEffect(() => {
@@ -641,21 +708,14 @@ export default function Dashboard() {
 
   // Central timer-based Demo Controller loop
   useEffect(() => {
-    if (!demoActive || demoPaused) return;
+    if (!demoRunning || demoPaused) return;
 
     const interval = setInterval(() => {
-      setDemoTime((prev) => prev + 1);
+      incrementDemoTime();
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [demoActive, demoPaused]);
-
-  // Handle Demo Auto-Stop
-  useEffect(() => {
-    if (demoActive && demoTime >= 90) {
-      stopDemo();
-    }
-  }, [demoTime, demoActive]);
+  }, [demoRunning, demoPaused]);
 
   // Unified Demo Narration and View State Resolver
   const getDemoNarration = (time: number) => {
@@ -727,37 +787,34 @@ export default function Dashboard() {
 
   // Synced View Snapping Effect
   useEffect(() => {
-    if (demoActive && !demoPaused) {
-      setActiveTab(currentNarration.view);
+    if (demoRunning && !demoPaused) {
+      setLocalActiveTab(currentNarration.view);
     }
-  }, [demoTime, demoActive, demoPaused, currentNarration.view]);
+  }, [demoTime, demoRunning, demoPaused, currentNarration.view]);
 
   // Demo debug console log verification logger
   useEffect(() => {
-    if (demoActive) {
+    if (demoRunning) {
       console.log(
         `[Sentinel Demo Debug] Time: ${demoTime}s | Step Index: ${currentNarration.step} | Step Label: ${currentNarration.label} | Target View: ${currentNarration.view} | Paused: ${demoPaused}`
       );
     }
-  }, [demoTime, demoActive, demoPaused, currentNarration]);
+  }, [demoTime, demoRunning, demoPaused, currentNarration]);
 
   // Demo side-effects executor (runs state mutations exactly as demoTime advances)
   useEffect(() => {
-    if (!demoActive || demoPaused) return;
+    if (!demoRunning || demoPaused) return;
 
     if (demoTime === 0) {
-      // Reset states
-      setCorridors(prev => {
-        const reset = { ...prev };
-        if (reset["Red Sea"]) {
-          reset["Red Sea"] = { ...reset["Red Sea"], score: 15, status: "STABLE" };
-        }
-        return reset;
+      setCorridorScores({
+        hormuz: 15,
+        redSea: 15,
+        suez: 15
       });
-      setSignals(prev => prev.filter(s => s.id !== "demo-red-sea-warning"));
+      setSignals(signals.filter(s => s.id !== "demo-red-sea-warning"));
     } 
     else if (demoTime === 5) {
-      const demoSignal: GeopoliticalSignal = {
+      const demoSignal: Signal = {
         id: "demo-red-sea-warning",
         corridor: "Red Sea",
         event_type: "Corridor Security Escalation",
@@ -769,16 +826,12 @@ export default function Dashboard() {
         headline: "ALERT: Red Sea cargo lines diverted following escalation in shipping corridor"
       };
 
-      setCorridors(prev => ({
-        ...prev,
-        "Red Sea": {
-          name: "Red Sea",
-          score: 50,
-          status: "WARNING",
-          description: "Auto-escalation warning triggered by transit reroutes."
-        }
-      }));
-      setSignals(prev => [demoSignal, ...prev]);
+      setCorridorScores({
+        hormuz: 15,
+        redSea: 50,
+        suez: 15
+      });
+      setSignals([demoSignal, ...signals]);
 
       setTimeout(() => {
         const feed = document.getElementById("threat-signal-feed");
@@ -788,7 +841,7 @@ export default function Dashboard() {
       }, 100);
     } 
     else if (demoTime === 20) {
-      setActiveScenarioId("red_sea_full");
+      setActiveScenario("red_sea_full");
       setCustomCapacityLoss(80);
       triggerFullPipeline("red_sea_full", 80);
     }
@@ -809,27 +862,27 @@ export default function Dashboard() {
         setIsLoadingMemo(false);
       }, 1250);
     }
-  }, [demoTime, demoActive, demoPaused]);
+  }, [demoTime, demoRunning, demoPaused]);
 
   // Demo Control methods
-  const startDemo = () => {
-    setDemoActive(true);
-    setDemoPaused(false);
-    setDemoTime(0);
+  const handleStartDemo = () => {
+    startDemo();
   };
 
-  const stopDemo = () => {
-    setDemoActive(false);
-    setDemoPaused(false);
-    setDemoTime(0);
+  const handleStopDemo = () => {
+    stopDemo();
     setProcurementVisibleCount(undefined);
   };
 
-  const togglePause = () => {
-    setDemoPaused(prev => !prev);
+  const handleTogglePause = () => {
+    if (demoPaused) {
+      resumeDemo();
+    } else {
+      pauseDemo();
+    }
   };
 
-  const skipDemo = () => {
+  const handleSkipDemo = () => {
     setDemoTime(65);
   };
 
@@ -937,7 +990,7 @@ export default function Dashboard() {
           <div className="flex items-center gap-1.5 border-l border-cyber-border/80 pl-3">
             <span className="text-gray-500">SYSTEM STATE:</span>
             <span className="text-cyber-blue font-bold uppercase tracking-wide">
-              {demoActive ? "DEMO_TEST_RUN" : corridors["Red Sea"]?.status === "WARNING" || corridors.Hormuz?.status === "CRITICAL" ? "WARN_EVAL" : "ACTIVE_STANDBY"}
+              {demoRunning ? "DEMO_TEST_RUN" : corridors["Red Sea"]?.status === "WARNING" || corridors.Hormuz?.status === "CRITICAL" ? "WARN_EVAL" : "ACTIVE_STANDBY"}
             </span>
           </div>
 
@@ -1059,21 +1112,21 @@ export default function Dashboard() {
           </div>
 
           <button
-            onClick={demoActive ? stopDemo : startDemo}
+            onClick={demoRunning ? handleStopDemo : handleStartDemo}
             className={`flex items-center gap-1.5 px-4 py-2 rounded font-mono text-[10px] font-black tracking-wider border transition-all ${
-              demoActive
+              demoRunning
                 ? "bg-cyber-red/10 border-cyber-red/30 text-cyber-red hover:bg-cyber-red hover:text-white"
                 : "bg-gradient-to-r from-cyber-orange to-cyber-indigo text-white border-cyber-orange hover:shadow-[0_0_15px_rgba(249,115,22,0.25)] hover:scale-[1.01]"
             }`}
           >
-            <Play className={`w-3 h-3 ${demoActive && !demoPaused ? "animate-spin" : ""}`} />
-            {demoActive ? "STOP TOUR" : "RUN GUIDED DEMO"}
+            <Play className={`w-3 h-3 ${demoRunning && !demoPaused ? "animate-spin" : ""}`} />
+            {demoRunning ? "STOP TOUR" : "RUN GUIDED DEMO"}
           </button>
         </div>
       </header>
 
       {/* 2. Demo Narration Overlay HUD (Matches Command Center Aesthetic) */}
-      {demoActive && (
+      {demoRunning && (
         <div className="bg-[#0b0f19] border-b border-cyber-orange px-6 py-2.5 flex flex-col sm:flex-row items-center justify-between gap-4 font-mono text-xs font-bold text-white z-40 print:hidden select-none animate-pulse">
           <div className="flex items-center gap-1.5 flex-wrap">
             <Cpu className={`w-4 h-4 text-cyber-orange ${demoPaused ? "" : "animate-spin-slow"}`} />
@@ -1090,19 +1143,19 @@ export default function Dashboard() {
           
           <div className="flex items-center gap-2">
             <button
-              onClick={togglePause}
+              onClick={handleTogglePause}
               className="flex items-center gap-1 px-3 py-1 bg-cyber-orange/15 border border-cyber-orange/30 text-cyber-orange hover:bg-cyber-orange hover:text-black rounded text-[10px] font-black"
             >
               {demoPaused ? "RESUME" : "PAUSE"}
             </button>
             <button
-              onClick={skipDemo}
+              onClick={handleSkipDemo}
               className="px-3 py-1 bg-cyber-indigo/25 border border-cyber-indigo/40 text-cyber-indigo hover:bg-cyber-indigo hover:text-white rounded text-[10px] font-black"
             >
               SKIP TO MEMO
             </button>
             <button
-              onClick={stopDemo}
+              onClick={handleStopDemo}
               className="px-3 py-1 bg-cyber-red/15 border border-cyber-red/30 text-cyber-red hover:bg-cyber-red hover:text-white rounded text-[10px] font-black"
             >
               EXIT TOUR
@@ -1122,11 +1175,12 @@ export default function Dashboard() {
               <div key={idx} className="relative group">
                 <button
                   onClick={() => {
-                    if (demoActive) {
-                      // Pause demo if user manually navigates to inspect
-                      setDemoPaused(true);
+                    if (demoRunning) {
+                      pauseDemo();
+                      setDemoStep(idx + 1);
+                    } else {
+                      setLocalActiveTab(idx);
                     }
-                    setActiveTab(idx);
                   }}
                   className={`w-10 h-10 rounded flex items-center justify-center transition-all ${
                     isActive
@@ -1159,10 +1213,6 @@ export default function Dashboard() {
               : "opacity-0 -translate-x-8 pointer-events-none scale-95"
           }`}>
             <RiskIntelligence
-              corridors={corridors}
-              signals={signals}
-              brentPrice={brentPrice}
-              brentSource={brentSource}
               isLoading={isLoadingRisk}
               onRefresh={fetchRiskIntelligence}
             />
@@ -1175,31 +1225,19 @@ export default function Dashboard() {
               : "opacity-0 translate-x-8 pointer-events-none scale-95"
           }`}>
             <ScenarioModeller
-              activeScenarioId={activeScenarioId}
-              customCapacityLoss={customCapacityLoss}
-              impact={adjustedImpact}
               animatedDaysOfCover={animatedDaysOfCover}
               animatedRefinery={animatedRefinery}
               animatedPrice={animatedPrice}
               animatedGdp={animatedGdp}
               isLoading={isLoadingScenario}
-              weights={weights}
               onScenarioChange={(scId) => {
-                setActiveScenarioId(scId);
-                setActiveInterventions({
-                  navyEscorts: false,
-                  sprRelease: false,
-                  opecNegotiation: false
-                });
+                setActiveScenario(scId);
+                resetInterventions();
                 triggerFullPipeline(scId, customCapacityLoss);
               }}
               onCustomLossChange={(loss) => {
                 setCustomCapacityLoss(loss);
-                setActiveInterventions({
-                  navyEscorts: false,
-                  sprRelease: false,
-                  opecNegotiation: false
-                });
+                resetInterventions();
                 triggerFullPipeline("custom", loss);
               }}
             />
@@ -1212,7 +1250,6 @@ export default function Dashboard() {
               : "opacity-0 translate-x-8 pointer-events-none scale-95"
           }`}>
             <ProcurementOrchestrator
-              options={adjustedProcurementOptions}
               isLoading={isLoadingProcurement}
               visibleCount={procurementVisibleCount}
             />
@@ -1225,15 +1262,11 @@ export default function Dashboard() {
               : "opacity-0 translate-x-8 pointer-events-none scale-95 print:block"
           }`}>
             <ExecutiveMemo
-              memo={memo}
               isLoading={isLoadingMemo}
-              gdpDrag={adjustedImpact.gdp_drag}
+              gdpDrag={animatedGdp}
               sprDays={animatedDaysOfCover}
-              activeScenarioId={activeScenarioId}
-              activeInterventions={activeInterventions}
-              onToggleIntervention={(id) => setActiveInterventions(prev => ({ ...prev, [id]: !prev[id] }))}
               onGenerate={() =>
-                triggerFullPipeline(activeScenarioId, customCapacityLoss)
+                triggerFullPipeline(activeScenarioId || "baseline", customCapacityLoss)
               }
             />
           </div>

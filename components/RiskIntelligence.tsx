@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { AlertTriangle, RefreshCw, Shield, TrendingUp, Ship, Info } from "lucide-react";
 import RiskMap from "./RiskMap";
 import AnimatedNumber from "./AnimatedNumber";
+import { useSentinelStore } from "../store/sentinel";
 
 interface GeopoliticalSignal {
   id: string;
@@ -25,27 +26,52 @@ interface CorridorState {
 }
 
 interface RiskIntelligenceProps {
-  corridors: {
-    Hormuz?: CorridorState;
-    "Red Sea"?: CorridorState;
-    Suez?: CorridorState;
-  };
-  signals: GeopoliticalSignal[];
-  brentPrice: number;
-  brentSource: string;
   isLoading: boolean;
   onRefresh: () => void;
 }
 
 export default function RiskIntelligence({
-  corridors,
-  signals,
-  brentPrice,
-  brentSource,
   isLoading,
   onRefresh,
 }: RiskIntelligenceProps) {
+  const {
+    corridorScores,
+    signals,
+    brentPrice,
+    brentSource,
+  } = useSentinelStore();
+
   const [activeCorridor, setActiveCorridor] = useState<string | null>(null);
+
+  // Reconstruct detailed corridors object from corridorScores
+  const corridors = useMemo(() => {
+    const getStatus = (score: number) => {
+      if (score >= 65) return "CRITICAL";
+      if (score >= 35) return "WARNING";
+      return "STABLE";
+    };
+
+    return {
+      Hormuz: {
+        name: "Strait of Hormuz",
+        score: corridorScores.hormuz,
+        status: getStatus(corridorScores.hormuz) as "STABLE" | "WARNING" | "CRITICAL",
+        description: "Controls 40%+ of Indian crude imports.",
+      },
+      "Red Sea": {
+        name: "Red Sea / Bab-el-Mandeb",
+        score: corridorScores.redSea,
+        status: getStatus(corridorScores.redSea) as "STABLE" | "WARNING" | "CRITICAL",
+        description: "Primary lane for imports from Europe/US & exports.",
+      },
+      Suez: {
+        name: "Suez Canal",
+        score: corridorScores.suez,
+        status: getStatus(corridorScores.suez) as "STABLE" | "WARNING" | "CRITICAL",
+        description: "Vessel transit flow route for Russian crude imports.",
+      },
+    };
+  }, [corridorScores]);
 
   // Auto-scroll to matching headline in Live Threat Feed when activeCorridor changes
   useEffect(() => {
