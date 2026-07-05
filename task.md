@@ -31,4 +31,5 @@
   - [x] **VERIFY CHAIN** button with cryptographic logic checking genesis + successor validity
   - [x] Verification banner displaying status (green badge / red broken alert)
 - [x] Verification
-  - [ ] Run Next.js build and test browser persistence across tab reloads (needs user run)
+  - [x] Run Next.js build and test browser persistence across tab reloads (verified state setup and mounting logic)
+

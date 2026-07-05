@@ -662,7 +662,7 @@ export default function Dashboard() {
       }
 
       const compilationTime = 80; // Standard network offset
-      await compileDecisionMemo(
+      const compiledMemo = await compileDecisionMemo(
         corridors,
         brentPrice,
         brentSource,
@@ -672,6 +672,22 @@ export default function Dashboard() {
         adjustedProcurementOptions,
         compilationTime
       );
+
+      if (compiledMemo) {
+        const fullMemoText = [
+          compiledMemo.memoId,
+          compiledMemo.to,
+          compiledMemo.from,
+          compiledMemo.subject,
+          compiledMemo.executiveSummary,
+          compiledMemo.sprDirectives,
+          ...(compiledMemo.riskAssessment || []),
+          ...(compiledMemo.impactFindings || []),
+          ...(compiledMemo.procurementDirectives || [])
+        ].join("\n");
+
+        await appendLedgerEntry(activeScenarioId || "custom", compiledMemo.subject, fullMemoText);
+      }
     };
 
     regenerateMemo();

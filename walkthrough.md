@@ -64,12 +64,13 @@ Closed the credibility gap by implementing a verifiable blockchain-inspired deci
   ```
 
 #### 4. Collapsible Auditing Panel UI
-- Rendered a collapsible **DECISION BRIEF AUDITING CHAIN (LEDGER)** panel at the bottom of the Executive Brief in [ExecutiveMemo.tsx](file:///d:/et_ai/components/ExecutiveMemo.tsx).
-- Features a monospace table showing `# | TIMESTAMP (IST) | SCENARIO ID | MEMO SUBJECT | HASH`.
-- Clicking any row expands details to display the full SHA-256 content hash, parent hash, and snapshot scores.
+- Rendered a collapsible **DECISION LEDGER** panel at the bottom of the Executive Brief in [ExecutiveMemo.tsx](file:///d:/et_ai/components/ExecutiveMemo.tsx).
+- Features a monospace table showing `# | TIMESTAMP | SCENARIO | HASH (first 12 chars)`.
+- Clicking any row expands details to display the full SHA-256 content hash, parent hash, snapshot scores, and the **MEMO SUBJECT**.
 - Includes a **VERIFY CHAIN** button that validates the block sequence and shows a status indicator:
-  - Green success banner: `"CHAIN INTACT — N entries verified successfully."`
+  - Green success banner: `"CHAIN INTACT — N entries verified"`
   - Red alert: `"CHAIN BROKEN — Discrepancy detected at Entry #i"` if a hash mismatch is found.
+- Added **Next.js Hydration Mismatch Safeguards** via mounting state checks, preventing mismatch warnings between browser localStorage and SSR default states.
 - Labeled clearly: `"BROWSER-PERSISTED LEDGER — production deployment would use append-only database (Supabase/PostgreSQL)"`.
 
 ---

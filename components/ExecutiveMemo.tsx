@@ -60,6 +60,11 @@ export default function ExecutiveMemo({
   const [compileProgress, setCompileProgress] = useState(0);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Upgrade 2: Audit Ledger UI states
   const [ledgerCollapsed, setLedgerCollapsed] = useState(true);
   const [expandedRowSeq, setExpandedRowSeq] = useState<number | null>(null);
@@ -104,7 +109,7 @@ export default function ExecutiveMemo({
     if (isValid) {
       setVerificationResult({
         status: "success",
-        message: `CHAIN INTACT — ${ledgerEntries.length} entries verified successfully.`
+        message: `CHAIN INTACT — ${ledgerEntries.length} entries verified`
       });
     } else {
       setVerificationResult({
@@ -512,18 +517,18 @@ export default function ExecutiveMemo({
               </span>
             </div>
 
-             {/* Cryptographic Ledger Hash */}
-             <div className="mt-5 pt-3 border-t border-gray-200 text-center font-mono text-[8.5px] text-gray-500 print:text-gray-600 select-none">
-               {ledgerEntries.length > 0 ? (
-                 <>
-                   LEDGER ENTRY: SHA-256 · {ledgerEntries[ledgerEntries.length - 1].contentHash.slice(0, 12)}... · Logged {ledgerEntries[ledgerEntries.length - 1].timestamp} · Entry #{ledgerEntries.length} of {ledgerEntries.length}
-                 </>
-               ) : (
-                 <>
-                   LEDGER ENTRY: SHA-256 · 7f3a9c2e4b1d... · Logged 01-07-2026 20:13:44 IST · Entry #4 of 4
-                 </>
-               )}
-             </div>
+              {/* Cryptographic Ledger Hash */}
+              <div className="mt-5 pt-3 border-t border-gray-200 text-center font-mono text-[8.5px] text-gray-500 print:text-gray-600 select-none">
+                {mounted && ledgerEntries.length > 0 ? (
+                  <>
+                    LEDGER ENTRY: SHA-256 · {ledgerEntries[ledgerEntries.length - 1].contentHash.slice(0, 12)}... · Logged {ledgerEntries[ledgerEntries.length - 1].timestamp} · Entry #{ledgerEntries.length} of {ledgerEntries.length}
+                  </>
+                ) : (
+                  <>
+                    LEDGER ENTRY: SHA-256 · 7f3a9c2e4b1d... · Logged 01-07-2026 20:13:44 IST · Entry #4 of 4
+                  </>
+                )}
+              </div>
  
              {/* Human Authorization Disclaimer */}
              <div className="mt-2 text-center font-sans tracking-wider text-[7.5px] uppercase text-gray-400 print:text-gray-500 leading-normal select-none">
@@ -544,17 +549,17 @@ export default function ExecutiveMemo({
          >
            <div className="flex items-center gap-2 text-xs font-black tracking-wider text-cyber-orange">
              <span className={`w-2 h-2 rounded-full bg-cyber-orange animate-pulse`} />
-             DECISION BRIEF AUDITING CHAIN (LEDGER)
+             DECISION LEDGER
            </div>
            <div className="flex items-center gap-4 text-[10px] text-gray-500 font-bold uppercase">
-             <span>{ledgerEntries.length} Blocks Hydrated</span>
+             <span>{mounted ? ledgerEntries.length : 0} Blocks Hydrated</span>
              <span className="text-cyber-orange group-hover:translate-y-[1px] transition-transform">
                {ledgerCollapsed ? "Expand [▼]" : "Collapse [▲]"}
              </span>
            </div>
          </button>
  
-         {!ledgerCollapsed && (
+         {!ledgerCollapsed && mounted && (
            <div className="p-6 flex flex-col gap-6 text-left">
              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-cyber-border/40 pb-4">
                <div className="flex flex-col gap-1">
@@ -604,10 +609,9 @@ export default function ExecutiveMemo({
                    <thead className="sticky top-0 bg-[#070b13] z-10 shadow-[0_1px_0_rgba(255,255,255,0.05)]">
                      <tr className="border-b border-cyber-border/40 text-[9px] text-gray-500 font-black uppercase">
                        <th className="py-2.5 px-3 w-12 text-center">#</th>
-                       <th className="py-2.5 px-3 w-[180px]">TIMESTAMP (IST)</th>
-                       <th className="py-2.5 px-3">SCENARIO ID</th>
-                       <th className="py-2.5 px-3">MEMO SUBJECT</th>
-                       <th className="py-2.5 px-3 w-36 text-center">HASH</th>
+                       <th className="py-2.5 px-3 w-[180px]">TIMESTAMP</th>
+                       <th className="py-2.5 px-3">SCENARIO</th>
+                       <th className="py-2.5 px-3 w-36 text-center">HASH (first 12 chars)</th>
                      </tr>
                    </thead>
                    <tbody>
@@ -628,7 +632,6 @@ export default function ExecutiveMemo({
                              <td className="py-3 px-3 font-semibold uppercase tracking-wider text-cyber-blue">
                                {entry.scenarioId}
                              </td>
-                             <td className="py-3 px-3 truncate max-w-[200px] font-sans">{entry.memoSubject}</td>
                              <td className="py-3 px-3 text-center font-bold text-gray-400 font-mono">
                                {entry.contentHash.slice(0, 12)}
                              </td>
@@ -637,8 +640,15 @@ export default function ExecutiveMemo({
                            {/* Expanded detail section */}
                            {isExpanded && (
                              <tr>
-                               <td colSpan={5} className="py-4 px-6 bg-gray-950/50 border-b border-cyber-border/20 text-[9.5px]">
+                               <td colSpan={4} className="py-4 px-6 bg-gray-950/50 border-b border-cyber-border/20 text-[9.5px]">
                                  <div className="flex flex-col gap-3 font-mono leading-normal text-gray-400">
+                                   <div className="flex flex-col gap-1 border-b border-cyber-border/20 pb-2.5">
+                                     <span className="text-gray-500 font-bold text-[8.5px] uppercase">MEMO SUBJECT:</span>
+                                     <div className="text-white font-bold text-xs font-sans">
+                                       {entry.memoSubject}
+                                     </div>
+                                   </div>
+
                                    <div className="flex flex-col gap-1 border-b border-cyber-border/20 pb-2.5">
                                      <span className="text-gray-500 font-bold text-[8.5px] uppercase">Cryptographic Audit Hashes:</span>
                                      <div className="flex flex-col sm:flex-row gap-2 mt-1">
