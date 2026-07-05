@@ -1,385 +1,89 @@
-# Implementation Plan - Upgrade 1: Zustand Global Store
+# Implementation Plan - Upgrade 2: Persistent Cryptographic Ledger
 
-This plan introduces a single, centralized Zustand store at `/store/sentinel.ts` to manage all shared state across the 4 modules of Sentinel-47. It fixes the guided tour desynchronization bug and establishes a robust state framework for all future features.
-
----
-
-## User Review Required
-
-> [!IMPORTANT]
-> **Store Definition Approval**:
-> Please review and approve the full store definition in `/store/sentinel.ts` before component migration begins.
-> 
-> **Core Decisions**:
-> - **Resilience Score**: Calculated dynamically inside the store using a `subscribe` selector to ensure it is always in sync with both live corridor scores and current scenario output (adjusted for active response interventions).
-> - **Demo Step & Navigation**: `demoStep` (0 to 4) is the single source of truth. Auto-navigation and HUD captions/timers are fully derived from `demoStep` and `demoTime`, eliminating the tour desynchronization issue.
-> - **Ledger Entries**: Any additions to `ledgerEntries` via `appendLedgerEntry` are wired to persist directly to `localStorage`, keeping audit logs intact.
+This plan implements a persistent, verifiable cryptographic audit log of decision briefs generated within the Sentinel-47 command center. It bridges the credibility gap by persisting calculations across refreshes and enabling real-time integrity verification.
 
 ---
 
 ## Proposed Changes
 
-### Central Store
+### 1. Store Definition & Persistence
 
-#### [NEW] [sentinel.ts](file:///d:/et_ai/store/sentinel.ts)
-Create the Zustand global store with the following TypeScript implementation:
-
-```typescript
-import { create } from "zustand";
-import { subscribeWithSelector } from "zustand/middleware";
-
-export interface Signal {
-  id: string;
-  corridor: "Hormuz" | "Red Sea" | "Suez" | "Global";
-  event_type: string;
-  severity_0to10: number;
-  confidence: number;
-  source: string;
-  timestamp: string;
-  reasoning: string;
-  headline: string;
-}
-
-export interface DarkFleetEntry {
-  id: string;
-  type: string;
-  lastKnown: string;
-  lostTime: string;
-  assessment: string;
-}
-
-export interface ScenarioOutput {
-  refinery_run_rate_drop: number;
-  fuel_price_delta: number;
-  days_of_cover: number;
-  gdp_drag: number;
-  assumptions: string[];
-}
-
-export interface ProcurementOption {
-  name: string;
-  source: string;
-  pricePremium: number;
-  transitDays: number;
-  portCongestion: "Low" | "Medium" | "High";
-  compatibility: number;
-  overallScore: number;
-  reasoning: string;
-}
-
-export interface Memo {
-  memoId: string;
-  date: string;
-  to: string;
-  from: string;
-  subject: string;
-  executiveSummary: string;
-  riskAssessment: string[];
-  impactFindings: string[];
-  procurementDirectives: string[];
-  sprDirectives: string;
-  signature: string;
-  timeSavedStatement: string;
-  autoTriggerStatement?: string;
-}
-
-export interface LedgerEntry {
-  id: string;
-  hash: string;
-  timestamp: string;
-  scenarioId: string;
-  details: string;
-}
-
-export interface SentinelStore {
-  // Module 1 live state
-  brentPrice: number;
-  brentSource: string;
-  corridorScores: {
-    hormuz: number;
-    redSea: number;
-    suez: number;
-  };
-  signals: Signal[];
-  darkFleetEvents: DarkFleetEntry[];
-  lastFetchedAt: Date | null;
-
-  // Module 2 scenario state
-  activeScenarioId: string | null;
-  scenarioOutput: ScenarioOutput | null;
-  customCapacityLoss: number;
-
-  // Module 3 procurement state
-  rankedOptions: ProcurementOption[];
-
-  // Module 4 memo state
-  currentMemo: Memo | null;
-  ledgerEntries: LedgerEntry[];
-  activeInterventions: {
-    navyEscorts: boolean;
-    sprRelease: boolean;
-    opecNegotiation: boolean;
-  };
-
-  // Resilience Index (derived, auto-computed)
-  resilienceScore: number;
-
-  // Guided demo state
-  demoRunning: boolean;
-  demoPaused: boolean;
-  demoStep: number; // 0 = not started, 1-4 = active step
-  demoStepStartedAt: Date | null;
-  demoTime: number;
-
-  // Setters & Actions
-  setBrentPrice: (price: number) => void;
-  setBrentSource: (source: string) => void;
-  setCorridorScores: (scores: { hormuz: number; redSea: number; suez: number }) => void;
-  setSignals: (signals: Signal[]) => void;
-  setDarkFleetEvents: (events: DarkFleetEntry[]) => void;
-  setLastFetchedAt: (date: Date | null) => void;
-
-  setActiveScenario: (id: string | null) => void;
-  setScenarioOutput: (output: ScenarioOutput | null) => void;
-  setCustomCapacityLoss: (loss: number) => void;
-
-  setRankedOptions: (options: ProcurementOption[]) => void;
-
-  setCurrentMemo: (memo: Memo | null) => void;
-  appendLedgerEntry: (entry: LedgerEntry) => void;
-  toggleIntervention: (id: "navyEscorts" | "sprRelease" | "opecNegotiation") => void;
-  resetInterventions: () => void;
-
-  setDemoStep: (step: number) => void;
-  setDemoTime: (time: number) => void;
-  incrementDemoTime: () => void;
-  pauseDemo: () => void;
-  resumeDemo: () => void;
-  stopDemo: () => void;
-  startDemo: () => void;
-}
-
-// Helper to calculate derived resilience score
-const calculateResilienceScore = (
-  corridorScores: { hormuz: number; redSea: number; suez: number },
-  scenarioOutput: ScenarioOutput | null,
-  activeInterventions: { navyEscorts: boolean; sprRelease: boolean; opecNegotiation: boolean }
-) => {
-  const avgCorridorRisk = (corridorScores.hormuz + corridorScores.redSea + corridorScores.suez) / 3;
-  const corridorResilience = 100 - avgCorridorRisk;
-
-  // Derive adjusted values from scenarioOutput and interventions
-  let refineryDrop = scenarioOutput?.refinery_run_rate_drop ?? 0;
-  let sprDays = scenarioOutput?.days_of_cover ?? 9.5;
-  let gdpDragVal = scenarioOutput?.gdp_drag ?? 0;
-
-  if (activeInterventions.navyEscorts) {
-    refineryDrop = Math.max(0, refineryDrop - 5);
-    gdpDragVal = Math.max(0, gdpDragVal - 0.12);
+#### [MODIFY] [sentinel.ts](file:///d:/et_ai/store/sentinel.ts)
+- Update `LedgerEntry` type structure to:
+  ```typescript
+  export interface LedgerEntry {
+    id: string;               // crypto.randomUUID()
+    sequence: number;         // monotonically incrementing
+    timestamp: string;        // ISO 8601 / IST timezone
+    scenarioId: string;
+    corridorScores: {         // snapshot of live state
+      hormuz: number;
+      redSea: number;
+      suez: number;
+    };
+    memoSubject: string;
+    contentHash: string;      // SHA-256 of full memo text + timestamp
+    previousHash: string;     // contentHash of the predecessor
   }
-  if (activeInterventions.sprRelease) {
-    refineryDrop = Math.max(0, refineryDrop - 10);
-    gdpDragVal = Math.max(0, gdpDragVal - 0.22);
-    sprDays = Math.min(9.5, sprDays + 1.5);
-  }
-  if (activeInterventions.opecNegotiation) {
-    refineryDrop = Math.max(0, refineryDrop - 3);
-    gdpDragVal = Math.max(0, gdpDragVal - 0.10);
-  }
+  ```
+- Change `appendLedgerEntry` to an async store action:
+  ```typescript
+  appendLedgerEntry: (scenarioId: string, memoSubject: string, memoFullText: string) => Promise<void>;
+  ```
+- Update store initialization:
+  - Read from `localStorage` under the key `"sentinel47_ledger"`.
+  - Hydrate `ledgerEntries` list on initialization.
+- Implement SHA-256 computation inside the action using browser `crypto.subtle.digest`:
+  ```typescript
+  const encoder = new TextEncoder();
+  const data = encoder.encode(memoFullText + timestamp);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const contentHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  ```
 
-  const sprResilience = (sprDays / 9.5) * 100;
-  const refineryResilience = 100 - refineryDrop;
-  const gdpResilience = Math.max(0, 100 - (gdpDragVal / 1.5) * 100);
+---
 
-  return Math.round(
-    (corridorResilience * 0.30) +
-    (sprResilience * 0.30) +
-    (refineryResilience * 0.25) +
-    (gdpResilience * 0.15)
-  );
-};
-
-export const useSentinelStore = create(
-  subscribeWithSelector<SentinelStore>((set) => ({
-    brentPrice: 74.50,
-    brentSource: "Estimated",
-    corridorScores: { hormuz: 15, redSea: 15, suez: 15 },
-    signals: [],
-    darkFleetEvents: [],
-    lastFetchedAt: null,
-    activeScenarioId: "baseline",
-    scenarioOutput: null,
-    customCapacityLoss: 0,
-    rankedOptions: [],
-    currentMemo: null,
-    ledgerEntries: typeof window !== "undefined" ? (() => {
-      const stored = localStorage.getItem("sentinel_ledger_entries");
-      return stored ? JSON.parse(stored) : [];
-    })() : [],
-    activeInterventions: { navyEscorts: false, sprRelease: false, opecNegotiation: false },
-    resilienceScore: 100,
-    demoRunning: false,
-    demoPaused: false,
-    demoStep: 0,
-    demoStepStartedAt: null,
-    demoTime: 0,
-
-    setBrentPrice: (price) => set({ brentPrice: price }),
-    setBrentSource: (source) => set({ brentSource: source }),
-    setCorridorScores: (scores) => set({ corridorScores: scores }),
-    setSignals: (signals) => set({ signals }),
-    setDarkFleetEvents: (events) => set({ darkFleetEvents: events }),
-    setLastFetchedAt: (date) => set({ lastFetchedAt: date }),
-
-    setActiveScenario: (id) => set({ activeScenarioId: id }),
-    setScenarioOutput: (output) => set({ scenarioOutput: output }),
-    setCustomCapacityLoss: (loss) => set({ customCapacityLoss: loss }),
-
-    setRankedOptions: (options) => set({ rankedOptions: options }),
-
-    setCurrentMemo: (memo) => set({ currentMemo: memo }),
-    appendLedgerEntry: (entry) => set((state) => {
-      const updated = [...state.ledgerEntries, entry];
-      if (typeof window !== "undefined") {
-        localStorage.setItem("sentinel_ledger_entries", JSON.stringify(updated));
-      }
-      return { ledgerEntries: updated };
-    }),
-    toggleIntervention: (id) => set((state) => ({
-      activeInterventions: {
-        ...state.activeInterventions,
-        [id]: !state.activeInterventions[id]
-      }
-    })),
-    resetInterventions: () => set({
-      activeInterventions: { navyEscorts: false, sprRelease: false, opecNegotiation: false }
-    }),
-
-    setDemoStep: (step) => set((state) => {
-      let targetTime = state.demoTime;
-      if (step === 1) targetTime = 0;
-      else if (step === 2) targetTime = 20;
-      else if (step === 3) targetTime = 45;
-      else if (step === 4) targetTime = 65;
-
-      return {
-        demoStep: step,
-        demoTime: targetTime,
-        demoStepStartedAt: step > 0 ? new Date() : null
-      };
-    }),
-    setDemoTime: (time) => set((state) => {
-      let step = 0;
-      if (time >= 0 && time < 20) step = 1;
-      else if (time >= 20 && time < 45) step = 2;
-      else if (time >= 45 && time < 65) step = 3;
-      else if (time >= 65 && time < 90) step = 4;
-      else step = 0;
-
-      return {
-        demoTime: time,
-        demoStep: step,
-        demoStepStartedAt: state.demoStep !== step ? new Date() : state.demoStepStartedAt
-      };
-    }),
-    incrementDemoTime: () => set((state) => {
-      const nextTime = state.demoTime + 1;
-      if (nextTime >= 90) {
-        return {
-          demoRunning: false,
-          demoPaused: false,
-          demoStep: 0,
-          demoTime: 0,
-          demoStepStartedAt: null
-        };
-      }
-      
-      let step = state.demoStep;
-      if (nextTime >= 0 && nextTime < 20) step = 1;
-      else if (nextTime >= 20 && nextTime < 45) step = 2;
-      else if (nextTime >= 45 && nextTime < 65) step = 3;
-      else if (nextTime >= 65 && nextTime < 90) step = 4;
-
-      return {
-        demoTime: nextTime,
-        demoStep: step,
-        demoStepStartedAt: state.demoStep !== step ? new Date() : state.demoStepStartedAt
-      };
-    }),
-    pauseDemo: () => set({ demoPaused: true }),
-    resumeDemo: () => set({ demoPaused: false }),
-    stopDemo: () => set({
-      demoRunning: false,
-      demoPaused: false,
-      demoStep: 0,
-      demoTime: 0,
-      demoStepStartedAt: null
-    }),
-    startDemo: () => set({
-      demoRunning: true,
-      demoPaused: false,
-      demoStep: 1,
-      demoTime: 0,
-      demoStepStartedAt: new Date()
-    })
-  }))
-);
-
-// Subscribe to automatically calculate derived resilienceScore
-useSentinelStore.subscribe(
-  (state) => [state.corridorScores, state.scenarioOutput, state.activeInterventions] as const,
-  ([corridorScores, scenarioOutput, activeInterventions]) => {
-    const score = calculateResilienceScore(corridorScores, scenarioOutput, activeInterventions);
-    useSentinelStore.setState({ resilienceScore: score });
-  },
-  {
-    fireImmediately: true,
-    equalityFn: (a, b) =>
-      a[0].hormuz === b[0].hormuz &&
-      a[0].redSea === b[0].redSea &&
-      a[0].suez === b[0].suez &&
-      a[1]?.refinery_run_rate_drop === b[1]?.refinery_run_rate_drop &&
-      a[1]?.days_of_cover === b[1]?.days_of_cover &&
-      a[1]?.gdp_drag === b[1]?.gdp_drag &&
-      a[2].navyEscorts === b[2].navyEscorts &&
-      a[2].sprRelease === b[2].sprRelease &&
-      a[2].opecNegotiation === b[2].opecNegotiation
-  }
-);
-```
-
-### Components Migration
+### 2. Sourcing Brief Execution Pipeline
 
 #### [MODIFY] [page.tsx](file:///d:/et_ai/app/page.tsx)
-- Migrate all local useState definitions (`corridors`, `signals`, `brentPrice`, `brentSource`, `activeScenarioId`, `customCapacityLoss`, `impact`, `activeInterventions`, `procurementOptions`, `memo`, `demoActive`, `demoPaused`, `demoTime`) to pull from and push to `useSentinelStore`.
-- Update the timer logic and initial load to trigger actions in the store.
-- Use `demoStep` directly to determine the active tab:
-  `const activeTab = demoStep > 0 ? demoStep - 1 : localActiveTab;`
+- Update the pipeline execution `triggerFullPipeline` to collect generated memo data and call `appendLedgerEntry` on success.
+- Extract `subject` and complete text content from the memo to feed the encoder.
 
-#### [MODIFY] [RiskIntelligence.tsx](file:///d:/et_ai/components/RiskIntelligence.tsx)
-- Migrate props and internally read from the store for shared state variables (`corridors`, `signals`, `brentPrice`, `brentSource`, `isLoading`).
+---
 
-#### [MODIFY] [ScenarioModeller.tsx](file:///d:/et_ai/components/ScenarioModeller.tsx)
-- Pull scenarios, weights, and active state from the store.
-
-#### [MODIFY] [ProcurementOrchestrator.tsx](file:///d:/et_ai/components/ProcurementOrchestrator.tsx)
-- Read ranked options directly from the store.
+### 3. Ledger Auditing UI Panel
 
 #### [MODIFY] [ExecutiveMemo.tsx](file:///d:/et_ai/components/ExecutiveMemo.tsx)
-- Read memo state, ledger entries, and active interventions directly from the store.
-- Call store actions to toggle interventions and append ledger entries.
+- Create a new collapsible **DECISION LEDGER** panel at the bottom of the Executive Brief, beneath the printable document container.
+- Implement a monospace entries table containing:
+  - Sequence index (`#`)
+  - Timestamp (IST format)
+  - Scenario ID
+  - Abbreviated Hash (first 12 characters)
+- Add expandable row details displaying:
+  - Full `contentHash`
+  - Full `previousHash`
+  - Snapped corridor scores snapshot
+- Add a **VERIFY CHAIN** button that loops through all entries:
+  - Confirms first entry's `previousHash === "GENESIS"`.
+  - Checks if `entry.previousHash === entries[i - 1].contentHash` for all subsequent entries.
+  - Displays chain verification state inside a cybernetic indicator banner: `"CHAIN INTACT — N entries verified"` or `"CHAIN BROKEN at Sequence #i"`.
+- Label the panel clearly with the senior engineering notice:
+  - `"BROWSER-PERSISTED LEDGER — production deployment would use append-only database (Supabase/PostgreSQL)"`.
 
 ---
 
 ## Verification Plan
 
 ### Automated Tests
-- Run `npm run build` to verify standard Next.js build compilation with the new store and hooks.
+- Build verification using:
+  ```bash
+  npm run build
+  ```
 
 ### Manual Verification
-- Start the application with `npm run dev`.
-- Start the Guided Tour:
-  - Verify that the timer HUD, auto-navigation tabs, and narration captions update in perfect sync.
-  - Pause, resume, and stop the tour. Verify there are no desynchronizations or layout freezing.
-  - Manually navigate to a different tab during the tour: verify the tour pauses and updates the step caption/timer to match the newly navigated view.
-- Trigger scenario presets and verify all metric tubes, cylinders, and ledger entries animate and save to local storage.
+- Generate a disruption scenario briefing (e.g., Red Sea Full Transit Suspension) and verify that a new ledger item is appended.
+- Reload the browser page and verify that the items in the **DECISION LEDGER** table remain populated.
+- Press **VERIFY CHAIN** and verify that a green success badge appears.
+- Modify local storage manually (or simulate tampering) to check if the verification chain correctly flags broken hashes.

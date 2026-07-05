@@ -536,6 +536,7 @@ export default function Dashboard() {
       if (res.ok) {
         const data = await res.json();
         setCurrentMemo(data.memo);
+        return data.memo;
       }
     } catch (e) {
       console.error("Failed to compile decision brief:", e);
@@ -594,7 +595,7 @@ export default function Dashboard() {
     if (activeImpact && activeProc) {
       const adjustedActiveImpact = getAdjustedImpact(activeImpact);
       const adjustedActiveProc = getAdjustedProcurementOptions(activeProc);
-      await compileDecisionMemo(
+      const compiledMemo = await compileDecisionMemo(
         activeCorridors,
         activeBrent,
         activeSource,
@@ -605,18 +606,21 @@ export default function Dashboard() {
         compilationTime
       );
 
-      // Generate a mock hash and append a ledger entry
-      const generateHash = () => {
-        return Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
-      };
-      const newEntry = {
-        id: `LOG-${Date.now()}`,
-        hash: generateHash(),
-        timestamp: new Date().toLocaleString("en-IN"),
-        scenarioId: scId,
-        details: `Disruption simulated at ${computedLoss}% capacity loss.`
-      };
-      appendLedgerEntry(newEntry);
+      if (compiledMemo) {
+        const fullMemoText = [
+          compiledMemo.memoId,
+          compiledMemo.to,
+          compiledMemo.from,
+          compiledMemo.subject,
+          compiledMemo.executiveSummary,
+          compiledMemo.sprDirectives,
+          ...(compiledMemo.riskAssessment || []),
+          ...(compiledMemo.impactFindings || []),
+          ...(compiledMemo.procurementDirectives || [])
+        ].join("\n");
+
+        await appendLedgerEntry(scId, compiledMemo.subject, fullMemoText);
+      }
     }
   };
 

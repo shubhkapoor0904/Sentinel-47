@@ -60,6 +60,60 @@ export default function ExecutiveMemo({
   const [compileProgress, setCompileProgress] = useState(0);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Upgrade 2: Audit Ledger UI states
+  const [ledgerCollapsed, setLedgerCollapsed] = useState(true);
+  const [expandedRowSeq, setExpandedRowSeq] = useState<number | null>(null);
+  const [verificationResult, setVerificationResult] = useState<{
+    status: "idle" | "success" | "error";
+    message: string;
+  }>({ status: "idle", message: "" });
+
+  const handleVerifyChain = () => {
+    if (ledgerEntries.length === 0) {
+      setVerificationResult({
+        status: "success",
+        message: "CHAIN INTACT — Ledger is empty (GENESIS state ready)"
+      });
+      return;
+    }
+
+    let isValid = true;
+    let brokenIndex = -1;
+
+    for (let i = 0; i < ledgerEntries.length; i++) {
+      const entry = ledgerEntries[i];
+      
+      // 1. First entry must have previousHash === "GENESIS"
+      if (i === 0) {
+        if (entry.previousHash !== "GENESIS") {
+          isValid = false;
+          brokenIndex = 0;
+          break;
+        }
+      } else {
+        // 2. Subsequent entries previousHash must match predecessor's contentHash
+        const prevEntry = ledgerEntries[i - 1];
+        if (entry.previousHash !== prevEntry.contentHash) {
+          isValid = false;
+          brokenIndex = i;
+          break;
+        }
+      }
+    }
+
+    if (isValid) {
+      setVerificationResult({
+        status: "success",
+        message: `CHAIN INTACT — ${ledgerEntries.length} entries verified successfully.`
+      });
+    } else {
+      setVerificationResult({
+        status: "error",
+        message: `CHAIN BROKEN — Discrepancy detected at Entry #${brokenIndex + 1} (Sequence validation failed).`
+      });
+    }
+  };
+
   // Clean up timer on unmount
   useEffect(() => {
     return () => {
@@ -106,7 +160,7 @@ export default function ExecutiveMemo({
   const genTime = match ? `${match[1]}s` : "0.18s";
 
   return (
-    <div className="cyber-panel p-6 rounded-lg border border-cyber-border h-full flex flex-col gap-6 select-none">
+    <div className="cyber-panel p-6 rounded-lg border border-cyber-border min-h-full flex flex-col gap-6 select-none">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-cyber-border pb-4 print:hidden">
         <div className="flex items-center gap-3">
@@ -321,7 +375,7 @@ export default function ExecutiveMemo({
           </div>
         </div>
       ) : (
-        <div id="printable-memo-document" className="flex-1 overflow-y-auto border border-cyber-border/80 bg-white text-gray-900 p-8 sm:p-10 rounded shadow-2xl font-serif text-left print:p-0 print:border-none print:shadow-none print:max-h-none print:bg-white print:text-black">
+        <div id="printable-memo-document" className="h-[500px] overflow-y-auto border border-cyber-border/80 bg-white text-gray-900 p-8 sm:p-10 rounded shadow-2xl font-serif text-left print:p-0 print:border-none print:shadow-none print:max-h-none print:h-auto print:bg-white print:text-black">
           <div ref={memoRef} className="flex flex-col gap-6 max-w-2xl mx-auto print:mx-0 print:max-w-none animate-fadeIn">
             
             {/* Dynamic Auto-Trigger conditions stamp */}
@@ -458,29 +512,181 @@ export default function ExecutiveMemo({
               </span>
             </div>
 
-            {/* Cryptographic Ledger Hash */}
-            <div className="mt-5 pt-3 border-t border-gray-200 text-center font-mono text-[8.5px] text-gray-500 print:text-gray-600 select-none">
-              {ledgerEntries.length > 0 ? (
-                <>
-                  LEDGER ENTRY: SHA-256 · {ledgerEntries[ledgerEntries.length - 1].hash.slice(0, 12)}... · Logged {ledgerEntries[ledgerEntries.length - 1].timestamp} · Entry #{ledgerEntries.length} of {ledgerEntries.length}
-                </>
-              ) : (
-                <>
-                  LEDGER ENTRY: SHA-256 · 7f3a9c2e4b1d... · Logged 01-07-2026 20:13:44 IST · Entry #4 of 4
-                </>
-              )}
-            </div>
-
-            {/* Human Authorization Disclaimer */}
-            <div className="mt-2 text-center font-sans tracking-wider text-[7.5px] uppercase text-gray-400 print:text-gray-500 leading-normal select-none">
-              This brief is a decision-support recommendation only. All directives
-              require human authorization and review by qualified officials before
-              execution. Sentinel-47 accelerates analysis — it does not act
-              autonomously.
-            </div>
-          </div>
-        </div>
-      )}
+             {/* Cryptographic Ledger Hash */}
+             <div className="mt-5 pt-3 border-t border-gray-200 text-center font-mono text-[8.5px] text-gray-500 print:text-gray-600 select-none">
+               {ledgerEntries.length > 0 ? (
+                 <>
+                   LEDGER ENTRY: SHA-256 · {ledgerEntries[ledgerEntries.length - 1].contentHash.slice(0, 12)}... · Logged {ledgerEntries[ledgerEntries.length - 1].timestamp} · Entry #{ledgerEntries.length} of {ledgerEntries.length}
+                 </>
+               ) : (
+                 <>
+                   LEDGER ENTRY: SHA-256 · 7f3a9c2e4b1d... · Logged 01-07-2026 20:13:44 IST · Entry #4 of 4
+                 </>
+               )}
+             </div>
+ 
+             {/* Human Authorization Disclaimer */}
+             <div className="mt-2 text-center font-sans tracking-wider text-[7.5px] uppercase text-gray-400 print:text-gray-500 leading-normal select-none">
+               This brief is a decision-support recommendation only. All directives
+               require human authorization and review by qualified officials before
+               execution. Sentinel-47 accelerates analysis — it does not act
+               autonomously.
+             </div>
+           </div>
+         </div>
+       )}
+ 
+       {/* 2. Collapsible Decision Ledger Panel */}
+       <div className="mt-8 bg-[#070b13]/90 border border-cyber-border rounded overflow-hidden font-mono print:hidden shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
+         <button
+           onClick={() => setLedgerCollapsed(!ledgerCollapsed)}
+           className="w-full px-6 py-4 flex items-center justify-between bg-gray-950/40 border-b border-cyber-border hover:bg-gray-950/60 transition-all group"
+         >
+           <div className="flex items-center gap-2 text-xs font-black tracking-wider text-cyber-orange">
+             <span className={`w-2 h-2 rounded-full bg-cyber-orange animate-pulse`} />
+             DECISION BRIEF AUDITING CHAIN (LEDGER)
+           </div>
+           <div className="flex items-center gap-4 text-[10px] text-gray-500 font-bold uppercase">
+             <span>{ledgerEntries.length} Blocks Hydrated</span>
+             <span className="text-cyber-orange group-hover:translate-y-[1px] transition-transform">
+               {ledgerCollapsed ? "Expand [▼]" : "Collapse [▲]"}
+             </span>
+           </div>
+         </button>
+ 
+         {!ledgerCollapsed && (
+           <div className="p-6 flex flex-col gap-6 text-left">
+             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-cyber-border/40 pb-4">
+               <div className="flex flex-col gap-1">
+                 <span className="text-[10px] font-black text-gray-400">
+                   BROWSER-PERSISTED LEDGER — production deployment would use append-only database (Supabase/PostgreSQL)
+                 </span>
+                 <span className="text-[9px] text-gray-600 font-bold uppercase tracking-wider">
+                   Provides a local tamper-proof audit trail of ministerial decision synthesis directives.
+                 </span>
+               </div>
+               <div className="flex items-center gap-3 shrink-0">
+                 <button
+                   onClick={handleVerifyChain}
+                   className="px-4 py-2 text-[10px] font-black border border-cyber-blue text-cyber-blue hover:bg-cyber-blue/10 hover:shadow-[0_0_10px_rgba(6,182,212,0.25)] rounded uppercase transition-all duration-200"
+                 >
+                   VERIFY CHAIN
+                 </button>
+               </div>
+             </div>
+ 
+             {/* Verification Status Banner */}
+             {verificationResult.status !== "idle" && (
+               <div
+                 className={`p-3 rounded border text-[10px] font-black flex items-center gap-3 animate-fadeIn ${
+                   verificationResult.status === "success"
+                     ? "bg-emerald-950/20 border-emerald-500/30 text-emerald-400"
+                     : "bg-cyber-red/10 border-cyber-red/30 text-cyber-red"
+                 }`}
+               >
+                 <div
+                   className={`w-2 h-2 rounded-full ${
+                     verificationResult.status === "success" ? "bg-emerald-400" : "bg-cyber-red"
+                   }`}
+                 />
+                 {verificationResult.message}
+               </div>
+             )}
+ 
+             {/* Ledger Table */}
+             {ledgerEntries.length === 0 ? (
+               <div className="py-8 text-center text-[10px] text-gray-500 font-bold uppercase tracking-widest border border-dashed border-cyber-border/40 rounded">
+                 [ No decision ledger entries recorded in this browser session ]
+               </div>
+             ) : (
+               <div className="overflow-x-auto max-h-[280px] overflow-y-auto border border-cyber-border/20 rounded bg-[#03070d]/50 custom-scrollbar">
+                 <table className="w-full text-left border-collapse text-[10.5px]">
+                   <thead className="sticky top-0 bg-[#070b13] z-10 shadow-[0_1px_0_rgba(255,255,255,0.05)]">
+                     <tr className="border-b border-cyber-border/40 text-[9px] text-gray-500 font-black uppercase">
+                       <th className="py-2.5 px-3 w-12 text-center">#</th>
+                       <th className="py-2.5 px-3 w-[180px]">TIMESTAMP (IST)</th>
+                       <th className="py-2.5 px-3">SCENARIO ID</th>
+                       <th className="py-2.5 px-3">MEMO SUBJECT</th>
+                       <th className="py-2.5 px-3 w-36 text-center">HASH</th>
+                     </tr>
+                   </thead>
+                   <tbody>
+                     {ledgerEntries.map((entry) => {
+                       const isExpanded = expandedRowSeq === entry.sequence;
+                       return (
+                         <React.Fragment key={entry.id}>
+                           <tr
+                             onClick={() => setExpandedRowSeq(isExpanded ? null : entry.sequence)}
+                             className={`border-b border-cyber-border/20 cursor-pointer transition-all ${
+                               isExpanded
+                                 ? "bg-cyber-orange/5 text-cyber-orange"
+                                 : "text-gray-300 hover:bg-gray-900/30 hover:text-white"
+                             }`}
+                           >
+                             <td className="py-3 px-3 text-center text-gray-500 font-bold">{entry.sequence}</td>
+                             <td className="py-3 px-3 font-medium">{entry.timestamp}</td>
+                             <td className="py-3 px-3 font-semibold uppercase tracking-wider text-cyber-blue">
+                               {entry.scenarioId}
+                             </td>
+                             <td className="py-3 px-3 truncate max-w-[200px] font-sans">{entry.memoSubject}</td>
+                             <td className="py-3 px-3 text-center font-bold text-gray-400 font-mono">
+                               {entry.contentHash.slice(0, 12)}
+                             </td>
+                           </tr>
+                           
+                           {/* Expanded detail section */}
+                           {isExpanded && (
+                             <tr>
+                               <td colSpan={5} className="py-4 px-6 bg-gray-950/50 border-b border-cyber-border/20 text-[9.5px]">
+                                 <div className="flex flex-col gap-3 font-mono leading-normal text-gray-400">
+                                   <div className="flex flex-col gap-1 border-b border-cyber-border/20 pb-2.5">
+                                     <span className="text-gray-500 font-bold text-[8.5px] uppercase">Cryptographic Audit Hashes:</span>
+                                     <div className="flex flex-col sm:flex-row gap-2 mt-1">
+                                       <div className="flex-1">
+                                         <span className="text-cyber-orange font-bold">Content Hash (SHA-256):</span>
+                                         <div className="bg-[#03070d] p-1.5 rounded border border-cyber-border/40 mt-0.5 select-all truncate text-white">
+                                           {entry.contentHash}
+                                         </div>
+                                       </div>
+                                       <div className="flex-1">
+                                         <span className="text-cyber-blue font-bold">Previous Hash:</span>
+                                         <div className="bg-[#03070d] p-1.5 rounded border border-cyber-border/40 mt-0.5 select-all truncate text-white">
+                                           {entry.previousHash}
+                                         </div>
+                                       </div>
+                                     </div>
+                                   </div>
+ 
+                                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                     <div>
+                                       <span className="text-gray-500 font-bold text-[8.5px] uppercase">Corridor Snaps:</span>
+                                       <div className="flex gap-4 mt-1">
+                                         <div>Hormuz: <span className="text-white font-bold">{entry.corridorScores.hormuz}</span></div>
+                                         <div>Red Sea: <span className="text-white font-bold">{entry.corridorScores.redSea}</span></div>
+                                         <div>Suez: <span className="text-white font-bold">{entry.corridorScores.suez}</span></div>
+                                       </div>
+                                     </div>
+                                     <div className="text-right sm:text-left">
+                                       <span className="text-gray-500 font-bold text-[8.5px] uppercase">Unique entry ID:</span>
+                                       <div className="text-gray-500 mt-1 select-all font-sans text-[8.5px]">
+                                         {entry.id}
+                                       </div>
+                                     </div>
+                                   </div>
+                                 </div>
+                               </td>
+                             </tr>
+                           )}
+                         </React.Fragment>
+                       );
+                     })}
+                   </tbody>
+                 </table>
+               </div>
+             )}
+           </div>
+         )}
+       </div>
 
       {/* CSS Animation Styles */}
       <style jsx global>{`
@@ -490,6 +696,20 @@ export default function ExecutiveMemo({
         }
         .animate-fadeIn {
           animation: fadeIn 0.4s ease-out forwards;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 5px;
+          height: 5px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: rgba(7, 11, 19, 0.4);
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(249, 115, 22, 0.35);
+          border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(249, 115, 22, 0.7);
         }
       `}</style>
     </div>

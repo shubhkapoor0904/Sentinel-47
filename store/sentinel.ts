@@ -57,11 +57,18 @@ export interface Memo {
 }
 
 export interface LedgerEntry {
-  id: string;
-  hash: string;
-  timestamp: string;
+  id: string;               // crypto.randomUUID()
+  sequence: number;         // monotonically incrementing
+  timestamp: string;        // ISO 8601, IST timezone
   scenarioId: string;
-  details: string;
+  corridorScores: {         // snapshot of live state
+    hormuz: number;
+    redSea: number;
+    suez: number;
+  };
+  memoSubject: string;
+  contentHash: string;      // SHA-256 of full memo text
+  previousHash: string;     // SHA-256 of previous entry's contentHash — chain structure
 }
 
 export interface SentinelStore {
@@ -119,7 +126,7 @@ export interface SentinelStore {
   setRankedOptions: (options: ProcurementOption[]) => void;
 
   setCurrentMemo: (memo: Memo | null) => void;
-  appendLedgerEntry: (entry: LedgerEntry) => void;
+  appendLedgerEntry: (scenarioId: string, memoSubject: string, memoFullText: string) => Promise<void>;
   toggleIntervention: (id: "navyEscorts" | "sprRelease" | "opecNegotiation") => void;
   setInterventions: (interventions: { navyEscorts: boolean; sprRelease: boolean; opecNegotiation: boolean }) => void;
   resetInterventions: () => void;
@@ -187,7 +194,7 @@ export const useSentinelStore = create(
     rankedOptions: [],
     currentMemo: null,
     ledgerEntries: typeof window !== "undefined" ? (() => {
-      const stored = localStorage.getItem("sentinel_ledger_entries");
+      const stored = localStorage.getItem("sentinel47_ledger");
       return stored ? JSON.parse(stored) : [];
     })() : [],
     activeInterventions: { navyEscorts: false, sprRelease: false, opecNegotiation: false },
@@ -212,13 +219,56 @@ export const useSentinelStore = create(
     setRankedOptions: (options) => set({ rankedOptions: options }),
 
     setCurrentMemo: (memo) => set({ currentMemo: memo }),
-    appendLedgerEntry: (entry) => set((state) => {
-      const updated = [...state.ledgerEntries, entry];
-      if (typeof window !== "undefined") {
-        localStorage.setItem("sentinel_ledger_entries", JSON.stringify(updated));
+    appendLedgerEntry: async (scenarioId, memoSubject, memoFullText) => {
+      const getIstIsoString = () => {
+        const d = new Date();
+        const istTime = d.getTime() + (3600000 * 5.5);
+        const istDate = new Date(istTime);
+        return istDate.toISOString().replace("Z", "+05:30");
+      };
+
+      const timestamp = getIstIsoString();
+
+      const encoder = new TextEncoder();
+      const data = encoder.encode(memoFullText + timestamp);
+      let contentHash = "";
+      try {
+        const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        contentHash = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+      } catch (e) {
+        console.error("SHA-256 calculation failed, falling back to basic hash:", e);
+        let hash = 0;
+        for (let i = 0; i < memoFullText.length; i++) {
+          hash = (hash << 5) - hash + memoFullText.charCodeAt(i);
+          hash |= 0;
+        }
+        contentHash = Math.abs(hash).toString(16).padStart(8, "0") + Date.now().toString(16);
       }
-      return { ledgerEntries: updated };
-    }),
+
+      set((state) => {
+        const prevHash = state.ledgerEntries.length === 0
+          ? "GENESIS"
+          : state.ledgerEntries[state.ledgerEntries.length - 1].contentHash;
+
+        const newEntry: LedgerEntry = {
+          id: typeof crypto.randomUUID === "function" ? crypto.randomUUID() : Math.random().toString(36).substring(2),
+          sequence: state.ledgerEntries.length + 1,
+          timestamp,
+          scenarioId,
+          corridorScores: { ...state.corridorScores },
+          memoSubject,
+          contentHash,
+          previousHash: prevHash
+        };
+
+        const updated = [...state.ledgerEntries, newEntry];
+        if (typeof window !== "undefined") {
+          localStorage.setItem("sentinel47_ledger", JSON.stringify(updated));
+        }
+        return { ledgerEntries: updated };
+      });
+    },
     toggleIntervention: (id) => set((state) => ({
       activeInterventions: {
         ...state.activeInterventions,

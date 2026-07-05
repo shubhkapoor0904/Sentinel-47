@@ -1,72 +1,59 @@
-UPGRADE 1 — ZUSTAND GLOBAL STORE
-(fixes tour desync root cause + makes all future state
-changes structurally safe)
+UPGRADE 2 — PERSISTENT CRYPTOGRAPHIC LEDGER
+(closes the "tamper-proof" credibility gap — currently
+resets on every browser refresh which directly contradicts
+the pitch claim)
 
-npm install zustand
+Depends on: Upgrade 1 (appendLedgerEntry action in store)
 
-Create /store/sentinel.ts with a single Zustand store.
-This store is the ONLY source of truth for shared state
-across all 4 modules. Do not leave any of this state in
-local useState — migrate it all:
+Wire the following into the appendLedgerEntry store action:
 
-interface SentinelStore {
-
-  // Module 1 live state
-  brentPrice: number;
-  corridorScores: {
-    hormuz: number;
-    redSea: number;
-    suez: number;
-  };
-  signals: Signal[];         // live threat signal feed
-  darkFleetEvents: DarkFleetEntry[];
-  lastFetchedAt: Date | null;
-
-  // Module 2 scenario state
-  activeScenarioId: string | null;
-  scenarioOutput: ScenarioOutput | null;
-
-  // Module 3 procurement state
-  rankedOptions: ProcurementOption[];
-
-  // Module 4 memo state
-  currentMemo: Memo | null;
-  ledgerEntries: LedgerEntry[];
-
-  // Resilience Index (derived, auto-computed)
-  resilienceScore: number;
-
-  // Guided demo state
-  demoRunning: boolean;
-  demoPaused: boolean;
-  demoStep: number;          // 0 = not started, 1-4 = active step
-  demoStepStartedAt: Date | null;
-
-  // Actions
-  setCorridorScores: (scores) => void;
-  setActiveScenario: (id: string) => void;
-  appendLedgerEntry: (entry: LedgerEntry) => void;
-  setDemoStep: (step: number) => void;
-  pauseDemo: () => void;
-  resumeDemo: () => void;
-  stopDemo: () => void;
+interface LedgerEntry {
+  id: string;               // crypto.randomUUID()
+  sequence: number;         // monotonically incrementing
+  timestamp: string;        // ISO 8601, IST timezone
+  scenarioId: string;
+  corridorScores: object;   // snapshot of live state
+  memoSubject: string;
+  contentHash: string;      // SHA-256 of full memo text
+  previousHash: string;     // SHA-256 of previous entry's
+                            // contentHash — chain structure
 }
 
-CRITICAL RULES:
-- resilienceScore must be a COMPUTED value, not stored
-  directly — derive it inside the store from corridorScores
-  + scenarioOutput every time either changes. Use Zustand's
-  subscribeWithSelector or a derived selector for this.
-  Never let resilienceScore get out of sync with its inputs.
-- demoStep must be the single source of truth for the
-  guided tour caption, the timer display, and the
-  auto-navigation. Any component that reads demoStep
-  will automatically stay in sync — the caption desync
-  bug becomes structurally impossible.
-- LedgerEntry must be appended to localStorage on every
-  appendLedgerEntry call (see Upgrade 2 below) — wire
-  this in the action, not in the component.
+Computing contentHash:
+  const encoder = new TextEncoder();
+  const data = encoder.encode(memoFullText + timestamp);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const contentHash = hashArray.map(b =>
+    b.toString(16).padStart(2, '0')).join('');
 
-After creating the store, migrate ALL components to read
-from it via useSentinelStore(). Show me the full store
-definition before migrating any components.
+Computing previousHash:
+  If ledger is empty, previousHash = "GENESIS"
+  Otherwise previousHash = ledgerEntries[last].contentHash
+
+Persistence:
+  On every appendLedgerEntry call, immediately write the
+  full entries array to localStorage under the key
+  "sentinel47_ledger". On store initialization, read from
+  localStorage and hydrate ledgerEntries — the ledger
+  survives browser refresh and tab close.
+
+  const stored = localStorage.getItem("sentinel47_ledger");
+  if (stored) ledgerEntries = JSON.parse(stored);
+
+Ledger UI (add to Module 4 below the memo document):
+  A collapsible "DECISION LEDGER" panel showing all
+  entries in a monospace table:
+  #  |  TIMESTAMP  |  SCENARIO  |  HASH (first 12 chars)
+  Each row is one memo. Clicking a row expands the full
+  hash + previousHash for chain verification.
+  Add a "VERIFY CHAIN" button that iterates all entries
+  and confirms each previousHash matches its predecessor —
+  shows "CHAIN INTACT — N entries verified" or flags
+  a broken link. This one button makes the auditability
+  claim real, not decorative.
+
+Label the panel clearly:
+  "BROWSER-PERSISTED LEDGER — production deployment would
+  use append-only database (Supabase/PostgreSQL)"
+  This is honest, defensible, and sounds senior.
