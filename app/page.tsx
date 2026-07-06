@@ -8,6 +8,62 @@ import ScenarioModeller from "@/components/ScenarioModeller";
 import ProcurementOrchestrator from "@/components/ProcurementOrchestrator";
 import ExecutiveMemo from "@/components/ExecutiveMemo";
 import AnimatedNumber from "@/components/AnimatedNumber";
+import { useQuery } from "@tanstack/react-query";
+import { ModuleBoundary } from "../components/ModuleBoundary";
+import { FALLBACK_SIGNALS, FALLBACK_PRICE } from "../lib/fallback-data";
+
+// Query fetch functions
+const fetchBrentPrice = async () => {
+  try {
+    const res = await fetch("/api/risk");
+    if (!res.ok) throw new Error("Failed to fetch Brent price");
+    const data = await res.json();
+    return { ...data, isFallback: false };
+  } catch (e) {
+    console.warn("Brent crude price API unavailable — using fallback", e);
+    return {
+      brentPrice: FALLBACK_PRICE,
+      brentSource: "Cached Fallback Data",
+      isFallback: true
+    };
+  }
+};
+
+const fetchRiskSignals = async () => {
+  try {
+    const res = await fetch("/api/risk");
+    if (!res.ok) throw new Error("Failed to fetch risk signals");
+    const data = await res.json();
+    return { ...data, isFallback: false };
+  } catch (e) {
+    console.warn("News/Signals API unavailable — using fallback", e);
+    const finalCorridors = {
+      Hormuz: {
+        name: "Strait of Hormuz",
+        score: 25,
+        status: "STABLE" as const,
+        description: "Controls 40%+ of Indian crude imports.",
+      },
+      "Red Sea": {
+        name: "Red Sea / Bab-el-Mandeb",
+        score: 55,
+        status: "WARNING" as const,
+        description: "Primary lane for imports from Europe/US & exports.",
+      },
+      Suez: {
+        name: "Suez Canal",
+        score: 30,
+        status: "STABLE" as const,
+        description: "Vessel transit flow route for Russian crude imports.",
+      },
+    };
+    return {
+      signals: FALLBACK_SIGNALS,
+      corridors: finalCorridors,
+      isFallback: true
+    };
+  }
+};
 
 
 // Interfaces
@@ -37,6 +93,10 @@ interface ScenarioImpact {
   gdp_drag: number;
   assumptions: string[];
 }
+
+type ScenarioOutput = ScenarioImpact;
+type Signal = GeopoliticalSignal;
+type Memo = MemoStructure;
 
 interface ProcurementOption {
   name: string;
@@ -365,7 +425,6 @@ export default function Dashboard() {
 
 
   // Loader states
-  const [isLoadingRisk, setIsLoadingRisk] = useState<boolean>(false);
   const [isLoadingScenario, setIsLoadingScenario] = useState<boolean>(false);
   const [isLoadingProcurement, setIsLoadingProcurement] = useState<boolean>(false);
   const [isLoadingMemo, setIsLoadingMemo] = useState<boolean>(false);
@@ -374,31 +433,60 @@ export default function Dashboard() {
   const [procurementVisibleCount, setProcurementVisibleCount] = useState<number | undefined>(undefined);
   const [showResiliencePopover, setShowResiliencePopover] = useState<boolean>(false);
 
+  // Brent crude price query
+  const {
+    data: priceData,
+    isFetching: isFetchingPrice,
+    refetch: refetchPrice,
+  } = useQuery({
+    queryKey: ["brent-price"],
+    queryFn: fetchBrentPrice,
+    refetchInterval: demoRunning ? false : 60_000,
+    refetchIntervalInBackground: !demoRunning,
+    enabled: !demoRunning,
+  });
 
-  // Core pipelines
-  // Fetch Geopolitical Risk intelligence
-  const fetchRiskIntelligence = async () => {
-    setIsLoadingRisk(true);
-    try {
-      const res = await fetch("/api/risk");
-      if (res.ok) {
-        const data = await res.json();
-        setCorridorScores({
-          hormuz: data.corridors["Hormuz"]?.score ?? 15,
-          redSea: data.corridors["Red Sea"]?.score ?? 15,
-          suez: data.corridors["Suez"]?.score ?? 15,
-        });
-        setSignals(data.signals);
-        setBrentPrice(data.brentPrice);
-        setBrentSource(data.brentSource);
-        return data;
-      }
-    } catch (e) {
-      console.error("Failed to load risk intelligence:", e);
-    } finally {
-      setIsLoadingRisk(false);
-    }
+  // News/signal feed query
+  const {
+    data: signalData,
+    isFetching: isFetchingSignals,
+    refetch: refetchSignals,
+    dataUpdatedAt,
+  } = useQuery({
+    queryKey: ["risk-signals"],
+    queryFn: fetchRiskSignals,
+    refetchInterval: demoRunning ? false : 60_000,
+    refetchIntervalInBackground: !demoRunning,
+    enabled: !demoRunning,
+  });
+
+  const isLoadingRisk = isFetchingPrice || isFetchingSignals;
+  const isFallbackActive = priceData?.isFallback || signalData?.isFallback;
+
+  const handleRefreshAll = () => {
+    refetchPrice();
+    refetchSignals();
   };
+
+  // Synchronize priceData with store (only when demo is not running)
+  useEffect(() => {
+    if (priceData && !demoRunning) {
+      setBrentPrice(priceData.brentPrice);
+      setBrentSource(priceData.brentSource);
+    }
+  }, [priceData, demoRunning, setBrentPrice, setBrentSource]);
+
+  // Synchronize signalData with store (only when demo is not running)
+  useEffect(() => {
+    if (signalData && !demoRunning) {
+      setSignals(signalData.signals);
+      setCorridorScores({
+        hormuz: signalData.corridors["Hormuz"]?.score ?? 15,
+        redSea: signalData.corridors["Red Sea"]?.score ?? 15,
+        suez: signalData.corridors["Suez"]?.score ?? 15,
+      });
+    }
+  }, [signalData, demoRunning, setSignals, setCorridorScores]);
 
   // Run Scenario Modeller
   const runScenarioSimulation = async (scId: string, customLoss: number, currentPrice: number) => {
@@ -443,7 +531,7 @@ export default function Dashboard() {
           const blendedDays = Math.round((hImpact.days_of_cover * wH + oImpact.days_of_cover * wO + rImpact.days_of_cover * wR) * 10) / 10;
           const blendedGdp = Math.round((hImpact.gdp_drag * wH + oImpact.gdp_drag * wO + rImpact.gdp_drag * wR) * 100) / 100;
 
-          const compositeImpact: ScenarioOutput = {
+          const compositeImpact: ScenarioImpact = {
             refinery_run_rate_drop: blendedRefinery,
             fuel_price_delta: blendedPrice,
             days_of_cover: blendedDays,
@@ -553,12 +641,17 @@ export default function Dashboard() {
     let activeCorridors = corridors;
     let activeBrent = brentPrice;
     let activeSource = brentSource;
-    if (Object.keys(corridors).length === 0) {
-      const riskData = await fetchRiskIntelligence();
-      if (riskData) {
-        activeCorridors = riskData.corridors;
-        activeBrent = riskData.brentPrice;
-        activeSource = riskData.brentSource;
+    if (Object.keys(corridors).length === 0 || !activeBrent) {
+      try {
+        const res = await fetch("/api/risk");
+        if (res.ok) {
+          const data = await res.json();
+          activeCorridors = data.corridors;
+          activeBrent = data.brentPrice;
+          activeSource = data.brentSource;
+        }
+      } catch (e) {
+        console.error("Failed to load risk intelligence in pipeline:", e);
       }
     }
 
@@ -699,32 +792,38 @@ export default function Dashboard() {
     demoActiveRef.current = demoRunning;
   }, [demoRunning]);
 
-  // Initial Load
+  const baselineInitializedRef = useRef(false);
+
+  // Initial Load once TanStack queries retrieve their first data payload
   useEffect(() => {
-    fetchRiskIntelligence().then((riskData) => {
+    if (priceData && signalData && !baselineInitializedRef.current) {
+      baselineInitializedRef.current = true;
       if (demoActiveRef.current) return;
-      if (riskData) {
-        runScenarioSimulation("baseline", 0, riskData.brentPrice).then((imp) => {
+
+      const brentPriceVal = priceData.brentPrice;
+      const corridorsVal = signalData.corridors;
+      const brentSourceVal = priceData.brentSource;
+
+      runScenarioSimulation("baseline", 0, brentPriceVal).then((imp) => {
+        if (demoActiveRef.current) return;
+        runProcurementOrchestration("baseline", 0, brentPriceVal).then((proc) => {
           if (demoActiveRef.current) return;
-          runProcurementOrchestration("baseline", 0, riskData.brentPrice).then((proc) => {
-            if (demoActiveRef.current) return;
-            if (imp && proc) {
-              compileDecisionMemo(
-                riskData.corridors,
-                riskData.brentPrice,
-                riskData.brentSource,
-                "Baseline Operations",
-                0,
-                imp,
-                proc,
-                110
-              );
-            }
-          });
+          if (imp && proc) {
+            compileDecisionMemo(
+              corridorsVal,
+              brentPriceVal,
+              brentSourceVal,
+              "Baseline Operations",
+              0,
+              imp,
+              proc,
+              110
+            );
+          }
         });
-      }
-    });
-  }, []);
+      });
+    }
+  }, [priceData, signalData]);
 
   // Central timer-based Demo Controller loop
   useEffect(() => {
@@ -1014,6 +1113,15 @@ export default function Dashboard() {
             </span>
           </div>
 
+          {/* Network Fallback active indicator */}
+          {isFallbackActive && (
+            <div className="flex items-center gap-1.5 border-l border-cyber-border/80 pl-3">
+              <span className="text-yellow-500 text-[10px] font-bold font-mono px-2 py-0.5 rounded bg-yellow-500/10 border border-yellow-500/20 animate-pulse shrink-0">
+                CACHED DATA — LIVE FEED UNAVAILABLE
+              </span>
+            </div>
+          )}
+
           {/* Sentinel Resilience Index Composite Score */}
           <div className="relative flex items-center gap-2 border-l border-cyber-border/80 pl-3">
             <div
@@ -1232,10 +1340,13 @@ export default function Dashboard() {
               ? "opacity-100 translate-x-0 scale-100 pointer-events-auto" 
               : "opacity-0 -translate-x-8 pointer-events-none scale-95"
           }`}>
-            <RiskIntelligence
-              isLoading={isLoadingRisk}
-              onRefresh={fetchRiskIntelligence}
-            />
+            <ModuleBoundary moduleName="1. GEOPOLITICAL RISK AGENT">
+              <RiskIntelligence
+                isLoading={isLoadingRisk}
+                onRefresh={handleRefreshAll}
+                dataUpdatedAt={dataUpdatedAt}
+              />
+            </ModuleBoundary>
           </div>
 
           {/* View 2: Disruption Scenario Modeller */}
@@ -1244,23 +1355,25 @@ export default function Dashboard() {
               ? "opacity-100 translate-x-0 scale-100 pointer-events-auto" 
               : "opacity-0 translate-x-8 pointer-events-none scale-95"
           }`}>
-            <ScenarioModeller
-              animatedDaysOfCover={animatedDaysOfCover}
-              animatedRefinery={animatedRefinery}
-              animatedPrice={animatedPrice}
-              animatedGdp={animatedGdp}
-              isLoading={isLoadingScenario}
-              onScenarioChange={(scId) => {
-                setActiveScenario(scId);
-                resetInterventions();
-                triggerFullPipeline(scId, customCapacityLoss);
-              }}
-              onCustomLossChange={(loss) => {
-                setCustomCapacityLoss(loss);
-                resetInterventions();
-                triggerFullPipeline("custom", loss);
-              }}
-            />
+            <ModuleBoundary moduleName="2. DISRUPTION SCENARIO MODELLER">
+              <ScenarioModeller
+                animatedDaysOfCover={animatedDaysOfCover}
+                animatedRefinery={animatedRefinery}
+                animatedPrice={animatedPrice}
+                animatedGdp={animatedGdp}
+                isLoading={isLoadingScenario}
+                onScenarioChange={(scId) => {
+                  setActiveScenario(scId);
+                  resetInterventions();
+                  triggerFullPipeline(scId, customCapacityLoss);
+                }}
+                onCustomLossChange={(loss) => {
+                  setCustomCapacityLoss(loss);
+                  resetInterventions();
+                  triggerFullPipeline("custom", loss);
+                }}
+              />
+            </ModuleBoundary>
           </div>
 
           {/* View 3: Adaptive Procurement Orchestrator */}
@@ -1269,10 +1382,12 @@ export default function Dashboard() {
               ? "opacity-100 translate-x-0 scale-100 pointer-events-auto" 
               : "opacity-0 translate-x-8 pointer-events-none scale-95"
           }`}>
-            <ProcurementOrchestrator
-              isLoading={isLoadingProcurement}
-              visibleCount={procurementVisibleCount}
-            />
+            <ModuleBoundary moduleName="3. ADAPTIVE PROCUREMENT ORCHESTRATOR">
+              <ProcurementOrchestrator
+                isLoading={isLoadingProcurement}
+                visibleCount={procurementVisibleCount}
+              />
+            </ModuleBoundary>
           </div>
 
           {/* View 4: Executive Memo Agent */}
@@ -1281,14 +1396,16 @@ export default function Dashboard() {
               ? "opacity-100 translate-x-0 scale-100 pointer-events-auto" 
               : "opacity-0 translate-x-8 pointer-events-none scale-95 print:block"
           }`}>
-            <ExecutiveMemo
-              isLoading={isLoadingMemo}
-              gdpDrag={animatedGdp}
-              sprDays={animatedDaysOfCover}
-              onGenerate={() =>
-                triggerFullPipeline(activeScenarioId || "baseline", customCapacityLoss)
-              }
-            />
+            <ModuleBoundary moduleName="4. EXECUTIVE POLICY MEMO AGENT">
+              <ExecutiveMemo
+                isLoading={isLoadingMemo}
+                gdpDrag={animatedGdp}
+                sprDays={animatedDaysOfCover}
+                onGenerate={() =>
+                  triggerFullPipeline(activeScenarioId || "baseline", customCapacityLoss)
+                }
+              />
+            </ModuleBoundary>
           </div>
 
         </div>

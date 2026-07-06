@@ -1,89 +1,63 @@
-# Implementation Plan - Upgrade 2: Persistent Cryptographic Ledger
+# Implementation Plan - Upgrade 5: Error Boundaries + Network Fallback
 
-This plan implements a persistent, verifiable cryptographic audit log of decision briefs generated within the Sentinel-47 command center. It bridges the credibility gap by persisting calculations across refreshes and enabling real-time integrity verification.
+This plan implements a safety net for Sentinel-47. It adds client-side React Error Boundaries to prevent runtime JS exceptions in a single module from crashing the entire app. It also introduces local cached data fallbacks for Yahoo Finance / Brent prices and News API signals in case of network failures, complete with a notification banner in the Command Center header.
 
 ---
 
 ## Proposed Changes
 
-### 1. Store Definition & Persistence
+### 1. React Error Boundary Component
 
-#### [MODIFY] [sentinel.ts](file:///d:/et_ai/store/sentinel.ts)
-- Update `LedgerEntry` type structure to:
-  ```typescript
-  export interface LedgerEntry {
-    id: string;               // crypto.randomUUID()
-    sequence: number;         // monotonically incrementing
-    timestamp: string;        // ISO 8601 / IST timezone
-    scenarioId: string;
-    corridorScores: {         // snapshot of live state
-      hormuz: number;
-      redSea: number;
-      suez: number;
-    };
-    memoSubject: string;
-    contentHash: string;      // SHA-256 of full memo text + timestamp
-    previousHash: string;     // contentHash of the predecessor
-  }
-  ```
-- Change `appendLedgerEntry` to an async store action:
-  ```typescript
-  appendLedgerEntry: (scenarioId: string, memoSubject: string, memoFullText: string) => Promise<void>;
-  ```
-- Update store initialization:
-  - Read from `localStorage` under the key `"sentinel47_ledger"`.
-  - Hydrate `ledgerEntries` list on initialization.
-- Implement SHA-256 computation inside the action using browser `crypto.subtle.digest`:
-  ```typescript
-  const encoder = new TextEncoder();
-  const data = encoder.encode(memoFullText + timestamp);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const contentHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  ```
+#### [NEW] [ModuleBoundary.tsx](file:///d:/et_ai/components/ModuleBoundary.tsx)
+- Create a client-side class component `ModuleBoundary` extending `React.Component`.
+- Implement `getDerivedStateFromError` to set `{ hasError: true, error }`.
+- Render a cyber-themed fallback UI with the module name, error message, and a **REINITIALIZE MODULE** action button to reset state.
 
 ---
 
-### 2. Sourcing Brief Execution Pipeline
+### 2. Layout Integration (Module Wrapping)
 
 #### [MODIFY] [page.tsx](file:///d:/et_ai/app/page.tsx)
-- Update the pipeline execution `triggerFullPipeline` to collect generated memo data and call `appendLedgerEntry` on success.
-- Extract `subject` and complete text content from the memo to feed the encoder.
+- Import `ModuleBoundary` from `../components/ModuleBoundary`.
+- Wrap each of the 4 vertical navigation view containers with `<ModuleBoundary moduleName="...">`:
+  - Module 1: `1. GEOPOLITICAL RISK AGENT` wraps `<RiskIntelligence />`
+  - Module 2: `2. DISRUPTION SCENARIO MODELLER` wraps `<ScenarioModeller />`
+  - Module 3: `3. ADAPTIVE PROCUREMENT ORCHESTRATOR` wraps `<ProcurementOrchestrator />`
+  - Module 4: `4. EXECUTIVE POLICY MEMO AGENT` wraps `<ExecutiveMemo />`
 
 ---
 
-### 3. Ledger Auditing UI Panel
+### 3. Fallback Telemetry Assets
 
-#### [MODIFY] [ExecutiveMemo.tsx](file:///d:/et_ai/components/ExecutiveMemo.tsx)
-- Create a new collapsible **DECISION LEDGER** panel at the bottom of the Executive Brief, beneath the printable document container.
-- Implement a monospace entries table containing:
-  - Sequence index (`#`)
-  - Timestamp (IST format)
-  - Scenario ID
-  - Abbreviated Hash (first 12 characters)
-- Add expandable row details displaying:
-  - Full `contentHash`
-  - Full `previousHash`
-  - Snapped corridor scores snapshot
-- Add a **VERIFY CHAIN** button that loops through all entries:
-  - Confirms first entry's `previousHash === "GENESIS"`.
-  - Checks if `entry.previousHash === entries[i - 1].contentHash` for all subsequent entries.
-  - Displays chain verification state inside a cybernetic indicator banner: `"CHAIN INTACT — N entries verified"` or `"CHAIN BROKEN at Sequence #i"`.
-- Label the panel clearly with the senior engineering notice:
-  - `"BROWSER-PERSISTED LEDGER — production deployment would use append-only database (Supabase/PostgreSQL)"`.
+#### [NEW] [fallback-data.ts](file:///d:/et_ai/lib/fallback-data.ts)
+- Define a realistic list of 5 typesafe mock signals `FALLBACK_SIGNALS` matching the store's `Signal` interface.
+- Define a baseline `FALLBACK_PRICE = 72.60`.
+
+---
+
+### 4. Client-Side API Caching & Fallback Recovery
+
+#### [MODIFY] [page.tsx](file:///d:/et_ai/app/page.tsx)
+- Import `FALLBACK_SIGNALS` and `FALLBACK_PRICE` from `../lib/fallback-data`.
+- Update query functions `fetchBrentPrice` and `fetchRiskSignals`:
+  - Run the API fetch inside a `try/catch` block.
+  - On error, catch the failure, log `console.warn("News API unavailable — using fallback")`, and return fallback structures tagged with an `isFallback: true` flag.
+- Define `isFallbackActive` based on query states:
+  - `const isFallbackActive = priceData?.isFallback || signalData?.isFallback;`
+- Render a visible warning indicator in the header's ambient awareness bar when `isFallbackActive` is true:
+  ```tsx
+  <span className="text-yellow-500 text-[10px] font-mono px-2 py-0.5 rounded bg-yellow-500/10 border border-yellow-500/20 animate-pulse shrink-0">
+    CACHED DATA — LIVE FEED UNAVAILABLE
+  </span>
+  ```
 
 ---
 
 ## Verification Plan
 
 ### Automated Tests
-- Build verification using:
-  ```bash
-  npm run build
-  ```
+- Run `npm run build` to verify types and Next.js compilation.
 
 ### Manual Verification
-- Generate a disruption scenario briefing (e.g., Red Sea Full Transit Suspension) and verify that a new ledger item is appended.
-- Reload the browser page and verify that the items in the **DECISION LEDGER** table remain populated.
-- Press **VERIFY CHAIN** and verify that a green success badge appears.
-- Modify local storage manually (or simulate tampering) to check if the verification chain correctly flags broken hashes.
+- Simulate a JS exception in one of the modules and verify that only that component crashes and displays the "Module Fault" reset state, while other panels and navigation rails function correctly.
+- Disconnect the network (or point endpoints to dummy values) and verify that the app degrades gracefully, loads cached mock data, and displays the `CACHED DATA — LIVE FEED UNAVAILABLE` badge in the top strip.

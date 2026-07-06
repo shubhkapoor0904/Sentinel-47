@@ -28,11 +28,13 @@ interface CorridorState {
 interface RiskIntelligenceProps {
   isLoading: boolean;
   onRefresh: () => void;
+  dataUpdatedAt?: number;
 }
 
 export default function RiskIntelligence({
   isLoading,
   onRefresh,
+  dataUpdatedAt,
 }: RiskIntelligenceProps) {
   const {
     corridorScores,
@@ -40,6 +42,25 @@ export default function RiskIntelligence({
     brentPrice,
     brentSource,
   } = useSentinelStore();
+
+  const [secondsAgo, setSecondsAgo] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!dataUpdatedAt || dataUpdatedAt === 0) {
+      setSecondsAgo(null);
+      return;
+    }
+
+    const updateSeconds = () => {
+      const elapsed = Math.floor((Date.now() - dataUpdatedAt) / 1000);
+      setSecondsAgo(Math.max(0, elapsed));
+    };
+
+    updateSeconds();
+
+    const interval = setInterval(updateSeconds, 1000);
+    return () => clearInterval(interval);
+  }, [dataUpdatedAt]);
 
   const [activeCorridor, setActiveCorridor] = useState<string | null>(null);
 
@@ -247,7 +268,7 @@ export default function RiskIntelligence({
                 Live Threat Signal Extraction
               </span>
               <span className="text-[9px] font-mono text-gray-500">
-                POLLING: ACTIVE (60S)
+                {secondsAgo !== null ? `UPDATED ${secondsAgo}s AGO` : "POLLING: ACTIVE (60S)"}
               </span>
             </div>
 
