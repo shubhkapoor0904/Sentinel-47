@@ -1,19 +1,23 @@
-# Task Checklist - Upgrade 5: Error Boundaries + Network Fallback
+# Task Checklist - Upgrade 6: URL State Persistence
 
-- [x] Create React Error Boundary Component
-  - [x] Create [ModuleBoundary.tsx](file:///d:/et_ai/components/ModuleBoundary.tsx)
-  - [x] Implement state, fallback UI, error reporting, and reinitialization
-- [x] Wrap Navigation Modules in boundaries
-  - [x] Update [page.tsx](file:///d:/et_ai/app/page.tsx) to wrap Modules 1-4 with `<ModuleBoundary>`
-- [x] Define realistic typesafe Fallback Assets
-  - [x] Create [fallback-data.ts](file:///d:/et_ai/lib/fallback-data.ts)
-  - [x] Define `FALLBACK_SIGNALS` matching the store's `Signal` interface and `FALLBACK_PRICE`
-- [x] Integrate Caching & Fallbacks in TanStack Query fetchers
-  - [x] Update `fetchBrentPrice` in [page.tsx](file:///d:/et_ai/app/page.tsx) with catch blocks and `isFallback` flags
-  - [x] Update `fetchRiskSignals` in [page.tsx](file:///d:/et_ai/app/page.tsx) with catch blocks, `isFallback` flags, and corridors fallbacks
-- [x] Display visual Caching Banner
-  - [x] Render `CACHED DATA — LIVE FEED UNAVAILABLE` in the top strip of [page.tsx](file:///d:/et_ai/app/page.tsx) when queries fallback
+- [/] Install URL query sync dependency
+  - [ ] Run `npm install nuqs`
+- [x] Implement Suspense Page Wrapper
+  - [x] Rename `Dashboard` to `DashboardComponent` in [page.tsx](file:///d:/et_ai/app/page.tsx)
+  - [x] Wrap with `<Suspense>` in the default export `Dashboard`
+- [x] Connect URL sync state hooks
+  - [x] Import `useQueryState` from `nuqs`
+  - [x] Declare `activeModule` and `activeScenarioUrl` URL hooks in [page.tsx](file:///d:/et_ai/app/page.tsx)
+  - [x] Map `activeTab` to derive from `activeModule`
+  - [x] Set up URL-to-Zustand and tab-to-URL synchronizers
+- [x] Update Navigation & Scenario triggers
+  - [x] Call `setActiveModule` in vertical rail nav items click
+  - [x] Call `setActiveScenarioUrl` in `onScenarioChange`
+  - [x] Check `activeScenarioUrl` in initial mount pipeline run
+- [x] Create Copy Demo Link Button
+  - [x] Implement `handleCopyDemoLink` clipboard action and `copied` state
+  - [x] Add Copy Demo Link button to guided tour HUD
 - [ ] Verification
   - [ ] Run Next.js build (`npm run build`)
-  - [ ] Verify error boundaries catch faults and allow reinitialization
-  - [ ] Verify fallback triggers correctly when endpoints fail
+  - [ ] Verify tab and scenario updates map to browser URL
+  - [ ] Verify clipboard copy and sharing works correctly

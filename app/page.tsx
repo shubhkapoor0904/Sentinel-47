@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, Suspense } from "react";
 import { Shield, Sliders, Brain, FileText, Play, Cpu } from "lucide-react";
 import { useSentinelStore } from "../store/sentinel";
 import RiskIntelligence from "@/components/RiskIntelligence";
@@ -11,6 +11,7 @@ import AnimatedNumber from "@/components/AnimatedNumber";
 import { useQuery } from "@tanstack/react-query";
 import { ModuleBoundary } from "../components/ModuleBoundary";
 import { FALLBACK_SIGNALS, FALLBACK_PRICE } from "../lib/fallback-data";
+import { useQueryState } from "nuqs";
 
 // Query fetch functions
 const fetchBrentPrice = async () => {
@@ -125,7 +126,7 @@ interface MemoStructure {
   autoTriggerStatement?: string;
 }
 
-export default function Dashboard() {
+function DashboardComponent() {
   // Zustand Store Integration
   const {
     brentPrice,
@@ -212,8 +213,42 @@ export default function Dashboard() {
     return { hormuz: wHormuz, redSea: wRedSea, opec: wOpec, isFallback: false };
   }, [corridorScores]);
 
-  const [localActiveTab, setLocalActiveTab] = useState<number>(0);
-  const activeTab = demoRunning && demoStep > 0 ? demoStep - 1 : localActiveTab;
+  const [activeModule, setActiveModule] = useQueryState("module", {
+    defaultValue: "1",
+    parse: (v) => v,
+  });
+
+  const [activeScenarioUrl, setActiveScenarioUrl] = useQueryState("scenario", {
+    defaultValue: "",
+    parse: (v) => v,
+  });
+
+  const activeTab = demoRunning && demoStep > 0 ? demoStep - 1 : parseInt(activeModule ?? "1") - 1;
+
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyDemoLink = () => {
+    if (typeof window !== "undefined") {
+      navigator.clipboard.writeText(window.location.href);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  // Synchronize scenario state from URL query parameters to Zustand store
+  useEffect(() => {
+    if (activeScenarioUrl !== undefined) {
+      const targetScenario = activeScenarioUrl || "baseline";
+      if (activeScenarioId !== targetScenario) {
+        setActiveScenario(targetScenario);
+      }
+    }
+  }, [activeScenarioUrl, activeScenarioId, setActiveScenario]);
+
+  // Synchronize active module parameter back to browser URL
+  useEffect(() => {
+    setActiveModule((activeTab + 1).toString());
+  }, [activeTab, setActiveModule]);
 
   const impact = scenarioOutput ?? {
     refinery_run_rate_drop: 0,
@@ -829,21 +864,28 @@ export default function Dashboard() {
       baselineInitializedRef.current = true;
       if (demoActiveRef.current) return;
 
+      const initialScenario = activeScenarioUrl || "baseline";
+      let initialLoss = 0;
+      if (initialScenario === "hormuz_50") initialLoss = 50;
+      else if (initialScenario === "opec_cut") initialLoss = 20;
+      else if (initialScenario === "red_sea_full") initialLoss = 80;
+      else if (initialScenario === "replay_2025") initialLoss = 40;
+
       const brentPriceVal = priceData.brentPrice;
       const corridorsVal = signalData.corridors;
       const brentSourceVal = priceData.brentSource;
 
-      runScenarioSimulation("baseline", 0, brentPriceVal).then((imp) => {
+      runScenarioSimulation(initialScenario, initialLoss, brentPriceVal).then((imp) => {
         if (demoActiveRef.current) return;
-        runProcurementOrchestration("baseline", 0, brentPriceVal).then((proc) => {
+        runProcurementOrchestration(initialScenario, initialLoss, brentPriceVal).then((proc) => {
           if (demoActiveRef.current) return;
           if (imp && proc) {
             compileDecisionMemo(
               corridorsVal,
               brentPriceVal,
               brentSourceVal,
-              "Baseline Operations",
-              0,
+              initialScenario === "baseline" ? "Baseline Operations" : initialScenario,
+              initialLoss,
               imp,
               proc,
               110
@@ -852,7 +894,7 @@ export default function Dashboard() {
         });
       });
     }
-  }, [priceData, signalData]);
+  }, [priceData, signalData, activeScenarioUrl]);
 
   // Central timer-based Demo Controller loop
   useEffect(() => {
@@ -936,9 +978,9 @@ export default function Dashboard() {
   // Synced View Snapping Effect
   useEffect(() => {
     if (demoRunning && !demoPaused) {
-      setLocalActiveTab(currentNarration.view);
+      setActiveModule((currentNarration.view + 1).toString());
     }
-  }, [demoTime, demoRunning, demoPaused, currentNarration.view]);
+  }, [demoTime, demoRunning, demoPaused, currentNarration.view, setActiveModule]);
 
   // Demo debug console log verification logger
   useEffect(() => {
@@ -989,7 +1031,7 @@ export default function Dashboard() {
       }, 100);
     } 
     else if (demoTime === 20) {
-      setActiveScenario("red_sea_full");
+      setActiveScenarioUrl("red_sea_full");
       setCustomCapacityLoss(80);
       triggerFullPipeline("red_sea_full", 80);
     }
@@ -1015,11 +1057,13 @@ export default function Dashboard() {
   // Demo Control methods
   const handleStartDemo = () => {
     startDemo();
+    setActiveScenarioUrl(null);
   };
 
   const handleStopDemo = () => {
     stopDemo();
     setProcurementVisibleCount(undefined);
+    setActiveScenarioUrl(null);
   };
 
   const handleTogglePause = () => {
@@ -1309,6 +1353,12 @@ export default function Dashboard() {
               {demoPaused ? "RESUME" : "PAUSE"}
             </button>
             <button
+              onClick={handleCopyDemoLink}
+              className="px-3 py-1 bg-cyber-blue/20 border border-cyber-blue/40 text-cyber-blue hover:bg-cyber-blue hover:text-white rounded text-[10px] font-black transition-all"
+            >
+              {copied ? "COPIED!" : "COPY DEMO LINK"}
+            </button>
+            <button
               onClick={handleSkipDemo}
               className="px-3 py-1 bg-cyber-indigo/25 border border-cyber-indigo/40 text-cyber-indigo hover:bg-cyber-indigo hover:text-white rounded text-[10px] font-black"
             >
@@ -1339,7 +1389,7 @@ export default function Dashboard() {
                       pauseDemo();
                       setDemoStep(idx + 1);
                     } else {
-                      setLocalActiveTab(idx);
+                      setActiveModule((idx + 1).toString());
                     }
                   }}
                   className={`w-10 h-10 rounded flex items-center justify-center transition-all ${
@@ -1396,7 +1446,7 @@ export default function Dashboard() {
                 animatedGdp={animatedGdp}
                 isLoading={isLoadingScenario}
                 onScenarioChange={(scId) => {
-                  setActiveScenario(scId);
+                  setActiveScenarioUrl(scId === "baseline" ? null : scId);
                   resetInterventions();
                   triggerFullPipeline(scId, customCapacityLoss);
                 }}
@@ -1446,5 +1496,16 @@ export default function Dashboard() {
       </div>
 
     </div>
+  );
+}
+
+export default function Dashboard() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#030712] flex items-center justify-center font-mono text-xs text-cyber-blue text-center flex-col gap-3">
+      <div className="w-1.5 h-6 bg-cyber-blue rounded shadow-[0_0_8px_rgba(6,182,212,0.8)] animate-pulse" />
+      INITIALIZING SENTINEL SHELL...
+    </div>}>
+      <DashboardComponent />
+    </Suspense>
   );
 }

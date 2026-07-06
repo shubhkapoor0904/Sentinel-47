@@ -1,63 +1,88 @@
-# Implementation Plan - Upgrade 5: Error Boundaries + Network Fallback
+# Implementation Plan - Upgrade 6: URL State Persistence
 
-This plan implements a safety net for Sentinel-47. It adds client-side React Error Boundaries to prevent runtime JS exceptions in a single module from crashing the entire app. It also introduces local cached data fallbacks for Yahoo Finance / Brent prices and News API signals in case of network failures, complete with a notification banner in the Command Center header.
+This plan implements URL query parameter synchronization for Sentinel-47 using `nuqs`. It allows judges to bookmark or share direct links to specific dashboard tabs and pre-loaded scenarios (e.g. `localhost:3000?module=4&scenario=red_sea_full`).
 
 ---
 
 ## Proposed Changes
 
-### 1. React Error Boundary Component
+### 1. Project Dependencies
 
-#### [NEW] [ModuleBoundary.tsx](file:///d:/et_ai/components/ModuleBoundary.tsx)
-- Create a client-side class component `ModuleBoundary` extending `React.Component`.
-- Implement `getDerivedStateFromError` to set `{ hasError: true, error }`.
-- Render a cyber-themed fallback UI with the module name, error message, and a **REINITIALIZE MODULE** action button to reset state.
+- Install `nuqs` to handle type-safe Next.js URL query parameter synchronization.
 
 ---
 
-### 2. Layout Integration (Module Wrapping)
+### 2. Page Suspense Wrapping
 
 #### [MODIFY] [page.tsx](file:///d:/et_ai/app/page.tsx)
-- Import `ModuleBoundary` from `../components/ModuleBoundary`.
-- Wrap each of the 4 vertical navigation view containers with `<ModuleBoundary moduleName="...">`:
-  - Module 1: `1. GEOPOLITICAL RISK AGENT` wraps `<RiskIntelligence />`
-  - Module 2: `2. DISRUPTION SCENARIO MODELLER` wraps `<ScenarioModeller />`
-  - Module 3: `3. ADAPTIVE PROCUREMENT ORCHESTRATOR` wraps `<ProcurementOrchestrator />`
-  - Module 4: `4. EXECUTIVE POLICY MEMO AGENT` wraps `<ExecutiveMemo />`
-
----
-
-### 3. Fallback Telemetry Assets
-
-#### [NEW] [fallback-data.ts](file:///d:/et_ai/lib/fallback-data.ts)
-- Define a realistic list of 5 typesafe mock signals `FALLBACK_SIGNALS` matching the store's `Signal` interface.
-- Define a baseline `FALLBACK_PRICE = 72.60`.
-
----
-
-### 4. Client-Side API Caching & Fallback Recovery
-
-#### [MODIFY] [page.tsx](file:///d:/et_ai/app/page.tsx)
-- Import `FALLBACK_SIGNALS` and `FALLBACK_PRICE` from `../lib/fallback-data`.
-- Update query functions `fetchBrentPrice` and `fetchRiskSignals`:
-  - Run the API fetch inside a `try/catch` block.
-  - On error, catch the failure, log `console.warn("News API unavailable — using fallback")`, and return fallback structures tagged with an `isFallback: true` flag.
-- Define `isFallbackActive` based on query states:
-  - `const isFallbackActive = priceData?.isFallback || signalData?.isFallback;`
-- Render a visible warning indicator in the header's ambient awareness bar when `isFallbackActive` is true:
-  ```tsx
-  <span className="text-yellow-500 text-[10px] font-mono px-2 py-0.5 rounded bg-yellow-500/10 border border-yellow-500/20 animate-pulse shrink-0">
-    CACHED DATA — LIVE FEED UNAVAILABLE
-  </span>
+- Import `Suspense` from `"react"`.
+- Rename the current `Dashboard` component to `DashboardComponent`.
+- Create a new default export component `Dashboard` that wraps `<DashboardComponent />` in a `<Suspense>` boundary:
+  ```typescript
+  export default function Dashboard() {
+    return (
+      <Suspense fallback={<div className="min-h-screen bg-[#030712] flex items-center justify-center font-mono text-xs text-cyber-blue">INITIALIZING SENTINEL SHELL...</div>}>
+        <DashboardComponent />
+      </Suspense>
+    );
+  }
   ```
+- This Suspense boundary prevents any Next.js static optimization compile errors due to client-side search parameter accesses.
+
+---
+
+### 3. URL State Sync Hooks
+
+#### [MODIFY] [page.tsx](file:///d:/et_ai/app/page.tsx)
+- Import `useQueryState` from `"nuqs"`.
+- Declare `activeModule` synced to the `"module"` query parameter:
+  ```typescript
+  const [activeModule, setActiveModule] = useQueryState("module", {
+    defaultValue: "1",
+    parse: (v) => v,
+  });
+  ```
+- Declare `activeScenarioUrl` synced to the `"scenario"` query parameter:
+  ```typescript
+  const [activeScenarioUrl, setActiveScenarioUrl] = useQueryState("scenario", {
+    defaultValue: "",
+    parse: (v) => v,
+  });
+  ```
+- Derivate `activeTab`:
+  - Map `activeTab` to use `activeModule` if the guided demo is not running:
+    ```typescript
+    const activeTab = demoRunning && demoStep > 0 ? demoStep - 1 : parseInt(activeModule ?? "1") - 1;
+    ```
+- Add a synchronization `useEffect` to write `activeScenarioUrl` into the Zustand store's `activeScenarioId` using `setActiveScenario`.
+- Add a synchronization `useEffect` that updates `activeModule` whenever `activeTab` changes. This ensures that the URL dynamically reflects the current view as the tour proceeds or as the user clicks tabs.
+
+---
+
+### 4. Interactive Navigation & Scenario Updates
+
+#### [MODIFY] [page.tsx](file:///d:/et_ai/app/page.tsx)
+- In the vertical navigation rail, call `setActiveModule((idx + 1).toString())` instead of mutating a local state.
+- In the `ScenarioModeller` view render block, call `setActiveScenarioUrl(scId)` in `onScenarioChange` so that selecting a scenario immediately updates the browser URL.
+- Update initial load simulation: check `activeScenarioUrl` on mount and run the pipeline simulation for the URL-provided scenario (e.g. `red_sea_full`) instead of defaulting to `baseline`.
+
+---
+
+### 5. Copy Demo Link HUD Action
+
+#### [MODIFY] [page.tsx](file:///d:/et_ai/app/page.tsx)
+- Add a state `copied` and a handler `handleCopyDemoLink` that writes `window.location.href` to the system clipboard.
+- Insert a **COPY DEMO LINK** button in the guided tour narration HUD.
 
 ---
 
 ## Verification Plan
 
 ### Automated Tests
-- Run `npm run build` to verify types and Next.js compilation.
+- Run `npm run build` to verify Next.js build compilation and router routing types compatibility.
 
 ### Manual Verification
-- Simulate a JS exception in one of the modules and verify that only that component crashes and displays the "Module Fault" reset state, while other panels and navigation rails function correctly.
-- Disconnect the network (or point endpoints to dummy values) and verify that the app degrades gracefully, loads cached mock data, and displays the `CACHED DATA — LIVE FEED UNAVAILABLE` badge in the top strip.
+- Verify that clicking different module tabs updates the URL to `?module=1`, `?module=2`, etc.
+- Verify that selecting a scenario in Module 2 updates the URL to `?module=2&scenario=red_sea_full`.
+- Click **COPY DEMO LINK** during the tour and verify that pasting it loads the exact active module and scenario states.
+- Manually edit the browser search params to `?module=4&scenario=hormuz_50` and verify the platform loads the Strait of Hormuz 50% closure memo directly.

@@ -1,6 +1,6 @@
 # Walkthrough - Sentinel-47 Upgrade Summary
 
-This walkthrough details the implementation of **Upgrade 1: Zustand Global Store**, **Upgrade 2: Persistent Cryptographic Ledger**, **Upgrade 4: TanStack Query for API Layer**, and **Upgrade 5: Error Boundaries + Network Fallback** across the Sentinel-47 command center dashboard.
+This walkthrough details the implementation of **Upgrade 1: Zustand Global Store**, **Upgrade 2: Persistent Cryptographic Ledger**, **Upgrade 4: TanStack Query for API Layer**, **Upgrade 5: Error Boundaries + Network Fallback**, and **Upgrade 6: URL State Persistence** across the Sentinel-47 command center dashboard.
 
 ---
 
@@ -65,27 +65,50 @@ Implemented a robust local safety net separating individual component failures a
 
 ---
 
+## 🔗 Upgrade 6: URL State Persistence
+Enabled type-safe browser search parameters mapping to the active module and disruption scenarios, enabling bookmarking and direct share links.
+
+### Core Achievements
+1. **App Router Suspense Wrapper**
+   - Wrapped the entire Client Dashboard page in a `<Suspense>` component boundary. This guarantees that Next.js static prerender routines successfully compile search parameters access without throwing exceptions.
+2. **Type-Safe Sync Hooks (`nuqs`)**
+   - Integrated `useQueryState("module")` and `useQueryState("scenario")` to store tab views and active scenario IDs inside URL search parameters.
+   - Map `activeTab` to derive from `activeModule` when not running a guided tour.
+3. **Bilateral State Syncing**
+   - Synchronized query parameter changes in the URL directly with Zustand store parameters, enabling direct deep links (e.g. `?module=4&scenario=red_sea_full`) to pre-trigger specific scenario analysis pipelines on mount.
+   - Sync store parameters (like navigation changes during the demo tour) back to URL query parameters so the URL continuously matches active states.
+4. **Copy Demo Link Action**
+   - Added a clipboard copy utility `handleCopyDemoLink` that stores the exact browser URL state.
+   - Rendered a **COPY DEMO LINK** action button inside the Tour Narration Overlay HUD.
+
+---
+
 ## 🧪 Verification & Execution Steps
 
 As the agent environment policy restricts running local package installs or build steps directly, please execute the following verification steps on your terminal:
 
-### 1. Verify and Build the App
+### 1. Install Dependencies
+Run the command below in the workspace root directory:
+```bash
+npm install nuqs
+```
+
+### 2. Verify and Build the App
 Validate types and compile the Next.js bundle to confirm everything compiles successfully:
 ```bash
 npm run build
 ```
 
-### 2. Run Locally
+### 3. Run Locally
 Start the development server:
 ```bash
 npm run dev
 ```
 
-### 3. Verify Error Boundary Isolation
-1. Temporarily insert a throw statement inside `RiskIntelligence.tsx` (e.g. `throw new Error("Simulated Geopolitical Agent Fault")`).
-2. Verify that **only** the Geopolitical Risk Intelligence panel crashes and displays the contained "Module Fault" layout, while the navigation rail, header telemetry, and other panels remain fully functional.
-3. Remove the throw statement and click **REINITIALIZE MODULE** to restore the component immediately.
-
-### 4. Verify Network Fallback Caching
-1. Block internet connection or disconnect from WiFi.
-2. Click **REFRESH** or reload. Verify that the platform continues functioning by rendering the 5 realistic mock signals, updating the Brent price to `$72.60`, and displaying the blinking amber `CACHED DATA — LIVE FEED UNAVAILABLE` badge in the top Command Center strip.
+### 4. Verify URL State Syncing
+1. Open the application. Note that the URL updates automatically to `?module=1`.
+2. Click on different vertical navigation rail icons (e.g. tab 3). Verify that the URL updates in real-time to `?module=3`.
+3. Navigate to **Module 2 (Disruption Scenario)** and select **Red Sea Full Transit Suspension**. Verify that the URL updates to `?module=2&scenario=red_sea_full`.
+4. Copy the URL, close the tab, open a new browser tab, paste the link, and verify it navigates directly to Module 2 with the Red Sea Full Transit Suspension scenario pre-loaded!
+5. Start the **GUIDED TOUR**. Verify that the URL updates dynamically as the steps progress (e.g. `?module=1` -> `?module=2` -> `?module=3` -> `?module=4`).
+6. Click **COPY DEMO LINK** during the tour and verify that pasting the link in a new tab initializes the app at the exact module and scenario state.
