@@ -29,12 +29,14 @@ interface RiskIntelligenceProps {
   isLoading: boolean;
   onRefresh: () => void;
   dataUpdatedAt?: number;
+  isFallbackActive?: boolean;
 }
 
 export default function RiskIntelligence({
   isLoading,
   onRefresh,
   dataUpdatedAt,
+  isFallbackActive = false,
 }: RiskIntelligenceProps) {
   const {
     corridorScores,
@@ -205,8 +207,12 @@ export default function RiskIntelligence({
                 Data Integrity Log
               </span>
               <div className="mt-1">
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyber-blue/10 border border-cyber-blue/20 text-cyber-blue uppercase">
-                  LIVE DATA: {brentSource}
+                <span className={`text-[10px] font-mono px-2 py-0.5 rounded uppercase ${
+                  isFallbackActive 
+                    ? "bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 animate-pulse" 
+                    : "bg-cyber-blue/10 border border-cyber-blue/20 text-cyber-blue"
+                }`}>
+                  {isFallbackActive ? "CACHED DATA: " : "LIVE DATA: "}{brentSource}
                 </span>
               </div>
             </div>

@@ -1,96 +1,71 @@
-UPGRADE 5 — ERROR BOUNDARIES + NETWORK FALLBACK
-(demo safety net — prevents a single API failure from
-crashing the entire platform mid-demo)
 
-This is the upgrade most teams skip and most regret.
+UPGRADE 6 — URL STATE PERSISTENCE
+(shareable demo links — a judge can bookmark
+"localhost:3000?module=4&scenario=red_sea" and land
+exactly where you want them)
 
-Part A — React Error Boundary (catches JS runtime errors):
+npm install nuqs
+(nuqs is the standard URL state library for Next.js
+App Router — type-safe, server-compatible)
 
-  // /components/ModuleBoundary.tsx
-  "use client";
-  import { Component, ReactNode } from "react";
+Replace the current active module and active scenario
+state with URL-synced params:
 
-  interface Props { moduleName: string; children: ReactNode; }
-  interface State { hasError: boolean; error?: Error; }
+  import { useQueryState } from "nuqs";
 
-  export class ModuleBoundary extends Component<Props, State> {
-    state: State = { hasError: false };
+  // In the navigation shell:
+  const [activeModule, setActiveModule] =
+    useQueryState("module", {
+      defaultValue: "1",
+      parse: (v) => v,
+    });
 
-    static getDerivedStateFromError(error: Error): State {
-      return { hasError: true, error };
-    }
+  // In Module 2:
+  const [activeScenarioId, setActiveScenarioId] =
+    useQueryState("scenario", {
+      defaultValue: "",
+      parse: (v) => v,
+    });
 
-    render() {
-      if (this.state.hasError) return (
-        <div className="border border-orange-500/30 rounded
-          p-6 font-mono text-sm">
-          <p className="text-orange-500">
-            ⚠ {this.props.moduleName} — MODULE FAULT
-          </p>
-          <p className="text-gray-400 mt-2">
-            {this.state.error?.message}
-          </p>
-          <button
-            onClick={() => this.setState({ hasError: false })}
-            className="mt-4 text-teal-400 hover:underline">
-            REINITIALIZE MODULE
-          </button>
-        </div>
-      );
-      return this.props.children;
-    }
-  }
+Result: navigating to Module 3 with Red Sea active
+produces the URL:
+  ?module=3&scenario=red_sea_suspension
 
-Wrap each module view:
-  <ModuleBoundary moduleName="1. GEOPOLITICAL RISK AGENT">
-    <GeopoliticalRiskModule />
-  </ModuleBoundary>
+The guided demo tour should UPDATE the URL at each step
+so the browser URL always reflects where you are. This
+means:
+- Pressing back/forward actually navigates between demo
+  steps (or at least doesn't break them).
+- You can send a judge a direct link to Module 4 with
+  the Red Sea scenario pre-loaded.
+- "Can you go back to the scenario screen?" during Q&A
+  means clicking back, not manually re-clicking through
+  4 modules.
 
-If Module 1 crashes, Modules 2-4 still work. The demo
-continues. Judges see a "MODULE FAULT — REINITIALIZE"
-button that looks intentional, not broken.
+Also add a "COPY DEMO LINK" button in the guided demo
+banner that copies the current URL to clipboard — during
+a live demo, if a judge wants to load it on their own
+laptop, you can share the exact state in one click.
 
-Part B — Network fallback for News API + price feed:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  // /lib/fallback-data.ts
-  export const FALLBACK_SIGNALS: Signal[] = [
-    {
-      source: "REUTERS",
-      headline: "Coalition forces intercept attack drones
-        over southern Red Sea shipping lanes",
-      corridor: "RED SEA",
-      severity: 6,
-      confidence: 85,
-      agentAssessment: "Active hostilities force shipping
-        lines to bypass Bab-el-Mandeb, increasing transit
-        times around Africa by 10-14 days.",
-      timestamp: new Date().toISOString(),
-    },
-    // 4-5 more realistic fallback entries
-  ];
+BUILD ORDER + TIME ESTIMATE
 
-  export const FALLBACK_PRICE = 72.60;
+If submission is today:
+  → Upgrade 5 only (error boundaries + fallback data)
+  → 45 minutes, pure safety net, zero risk of breaking
+    existing features, highest demo-day impact per minute
 
-In the TanStack Query fetcher:
-  queryFn: async () => {
-    try {
-      return await fetchRiskSignals();
-    } catch {
-      console.warn("News API unavailable — using fallback");
-      return FALLBACK_SIGNALS;
-    }
-  }
+If submission is tomorrow:
+  1. Upgrade 5 (45 min) — safety first
+  2. Upgrade 3 (60 min) — streaming memo is the wow moment
+  3. Upgrade 1 (90 min) — Zustand fixes root state bugs
+  4. Upgrade 2 (45 min) — depends on Upgrade 1
 
-Add a visible indicator when fallback is active:
-  // In top strip, if using fallback data:
-  <span className="text-yellow-500 text-xs font-mono">
-    CACHED DATA — LIVE FEED UNAVAILABLE
-  </span>
+If you have 3+ days:
+  All 6, in order. They compose cleanly.
 
-This means: if NewsAPI goes down on the venue WiFi
-during your demo (very common at hackathons), the
-platform shows realistic cached data and clearly
-labels it, rather than showing empty panels or errors.
-The demo continues. You explain it calmly. Judges see
-graceful degradation, which is a senior engineering
-signal.
+Do NOT do Upgrade 4 or 6 without first completing
+Upgrades 1 and 5 — they build on shared foundations
+and adding them to a fragile state layer creates more
+problems than they solve.

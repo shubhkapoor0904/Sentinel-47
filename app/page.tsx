@@ -433,11 +433,29 @@ export default function Dashboard() {
   const [procurementVisibleCount, setProcurementVisibleCount] = useState<number | undefined>(undefined);
   const [showResiliencePopover, setShowResiliencePopover] = useState<boolean>(false);
 
+  // Network online state
+  const [isOnline, setIsOnline] = useState(true);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setIsOnline(navigator.onLine);
+      const handleOnline = () => setIsOnline(true);
+      const handleOffline = () => setIsOnline(false);
+      window.addEventListener("online", handleOnline);
+      window.addEventListener("offline", handleOffline);
+      return () => {
+        window.removeEventListener("online", handleOnline);
+        window.removeEventListener("offline", handleOffline);
+      };
+    }
+  }, []);
+
   // Brent crude price query
   const {
     data: priceData,
     isFetching: isFetchingPrice,
     refetch: refetchPrice,
+    isError: priceError,
   } = useQuery({
     queryKey: ["brent-price"],
     queryFn: fetchBrentPrice,
@@ -451,6 +469,7 @@ export default function Dashboard() {
     data: signalData,
     isFetching: isFetchingSignals,
     refetch: refetchSignals,
+    isError: signalError,
     dataUpdatedAt,
   } = useQuery({
     queryKey: ["risk-signals"],
@@ -461,7 +480,7 @@ export default function Dashboard() {
   });
 
   const isLoadingRisk = isFetchingPrice || isFetchingSignals;
-  const isFallbackActive = priceData?.isFallback || signalData?.isFallback;
+  const isFallbackActive = !!(priceError || signalError || !isOnline);
 
   const handleRefreshAll = () => {
     refetchPrice();
@@ -470,15 +489,25 @@ export default function Dashboard() {
 
   // Synchronize priceData with store (only when demo is not running)
   useEffect(() => {
-    if (priceData && !demoRunning) {
+    if (priceError || !isOnline) {
+      setBrentPrice(FALLBACK_PRICE);
+      setBrentSource("Cached Fallback Data");
+    } else if (priceData && !demoRunning) {
       setBrentPrice(priceData.brentPrice);
       setBrentSource(priceData.brentSource);
     }
-  }, [priceData, demoRunning, setBrentPrice, setBrentSource]);
+  }, [priceData, priceError, isOnline, demoRunning, setBrentPrice, setBrentSource]);
 
   // Synchronize signalData with store (only when demo is not running)
   useEffect(() => {
-    if (signalData && !demoRunning) {
+    if (signalError || !isOnline) {
+      setSignals(FALLBACK_SIGNALS);
+      setCorridorScores({
+        hormuz: 25,
+        redSea: 55,
+        suez: 30,
+      });
+    } else if (signalData && !demoRunning) {
       setSignals(signalData.signals);
       setCorridorScores({
         hormuz: signalData.corridors["Hormuz"]?.score ?? 15,
@@ -486,7 +515,7 @@ export default function Dashboard() {
         suez: signalData.corridors["Suez"]?.score ?? 15,
       });
     }
-  }, [signalData, demoRunning, setSignals, setCorridorScores]);
+  }, [signalData, signalError, isOnline, demoRunning, setSignals, setCorridorScores]);
 
   // Run Scenario Modeller
   const runScenarioSimulation = async (scId: string, customLoss: number, currentPrice: number) => {
@@ -1086,6 +1115,9 @@ export default function Dashboard() {
           <div className="flex items-center gap-1.5">
             <span className="text-gray-500">BRENT:</span>
             <span className="text-white font-bold">${brentPrice.toFixed(2)}</span>
+            {isFallbackActive && (
+              <span className="text-yellow-500 text-[8px] border border-yellow-500/30 px-1 py-0.2 rounded font-extrabold uppercase ml-1 animate-pulse">CACHED</span>
+            )}
           </div>
 
           {/* Corridor Risk telemetry and dots */}
@@ -1345,6 +1377,7 @@ export default function Dashboard() {
                 isLoading={isLoadingRisk}
                 onRefresh={handleRefreshAll}
                 dataUpdatedAt={dataUpdatedAt}
+                isFallbackActive={isFallbackActive}
               />
             </ModuleBoundary>
           </div>
